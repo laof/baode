@@ -1,43 +1,25 @@
-15:20:26 : STM32CubeProgrammer API v2.22.0 | Windows-64Bits 
-15:21:16 : UR connection mode is defined with the SWrst reset mode
-15:21:16 : ST-LINK SN  : 007900283800000656313848
-15:21:16 : ST-LINK FW  : V2J28M18
-15:21:16 : Board       : --
-15:21:16 : Voltage     : 3.34V
-15:21:16 : Error: Unable to get core ID
-15:21:16 : Error: No STM32 target found! If your product embeds Debug Authentication, please perform a discovery using Debug Authentication
-15:21:54 : UR connection mode is defined with the SWrst reset mode
-15:21:54 : ST-LINK SN  : 007900283800000656313848
-15:21:54 : ST-LINK FW  : V2J28M18
-15:21:54 : Board       : --
-15:21:54 : Voltage     : 3.34V
-15:21:54 : Error: Unable to get core ID
-15:21:54 : Error: No STM32 target found! If your product embeds Debug Authentication, please perform a discovery using Debug Authentication
-15:22:29 : UR connection mode is defined with the SWrst reset mode
-15:22:29 : ST-LINK SN  : 007900283800000656313848
-15:22:29 : ST-LINK FW  : V2J28M18
-15:22:29 : Board       : --
-15:22:29 : Voltage     : 3.34V
-15:22:29 : Error: Unable to get core ID
-15:22:29 : Error: No STM32 target found! If your product embeds Debug Authentication, please perform a discovery using Debug Authentication
-15:22:32 : UR connection mode is defined with the SWrst reset mode
-15:22:32 : ST-LINK SN  : 007900283800000656313848
-15:22:32 : ST-LINK FW  : V2J28M18
-15:22:32 : Board       : --
-15:22:32 : Voltage     : 3.33V
-15:22:32 : Error: Unable to get core ID
-15:22:32 : Error: No STM32 target found! If your product embeds Debug Authentication, please perform a discovery using Debug Authentication
-15:23:08 : UR connection mode is defined with the SWrst reset mode
-15:23:08 : ST-LINK SN  : 007900283800000656313848
-15:23:08 : ST-LINK FW  : V2J28M18
-15:23:08 : Board       : --
-15:23:08 : Voltage     : 3.33V
-15:23:08 : Error: Unable to get core ID
-15:23:08 : Error: No STM32 target found! If your product embeds Debug Authentication, please perform a discovery using Debug Authentication
-15:23:23 : UR connection mode is defined with the SWrst reset mode
-15:23:23 : ST-LINK SN  : 007900283800000656313848
-15:23:23 : ST-LINK FW  : V2J28M18
-15:23:23 : Board       : --
-15:23:23 : Voltage     : 3.33V
-15:23:23 : Error: Unable to get core ID
-15:23:23 : Error: No STM32 target found! If your product embeds Debug Authentication, please perform a discovery using Debug Authentication
+16:10:10 : STM32CubeProgrammer API v2.22.0 | Windows-64Bits 
+16:10:33 : UR connection mode is defined with the SWrst reset mode
+16:10:33 : ST-LINK SN  : 007900283800000656313848
+16:10:33 : ST-LINK FW  : V2J28M18
+16:10:33 : Board       : --
+16:10:33 : Voltage     : 3.34V
+16:10:33 : Error: Unable to get core ID
+16:10:33 : Error: No STM32 target found! If your product embeds Debug Authentication, please perform a discovery using Debug Authentication
+16:18:34 : USB speed   : Full Speed (12MBit/s)
+16:18:34 : Manuf. ID   : STMicroelectronics
+16:18:34 : Product ID  : STM32  BOOTLOADER
+16:18:34 : SN          : 208531884543
+16:18:34 : DFU protocol: 1.1
+16:18:34 : Board       : --
+16:18:34 : Device ID   : 0x435
+16:18:34 : UPLOADING OPTION BYTES DATA ...
+16:18:34 :   Bank          : 0x00
+16:18:34 :   Address       : 0x1fff7800 
+16:18:34 :   Size          : 36 Bytes
+16:18:34 : UPLOADING ...
+16:18:34 :   Size          : 1024 Bytes
+16:18:34 :   Address       : 0x8000000
+16:18:34 : Read progress:
+16:18:34 : Data read successfully
+16:18:34 : Time elapsed during the read operation is: 00:00:00.003
