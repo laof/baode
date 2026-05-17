@@ -1,0 +1,153 @@
+#include <Arduino.h>
+#include <SPI.h>
+#include <ST73XX_UI.h>
+#include <ST7305_4p2_BW_DisplayDriver.h>
+#include <U8g2_for_ST73XX.h>
+
+#define DC_PIN   15
+#define RES_PIN  16
+#define CS_PIN   14
+#define SCLK_PIN 18
+#define SDIN_PIN 17
+
+ST7305_4p2_BW_DisplayDriver display(DC_PIN, RES_PIN, CS_PIN, SCLK_PIN, SDIN_PIN, SPI);
+U8G2_FOR_ST73XX u8g2_for_st73xx;
+
+void setup() {
+    Serial.begin(115200);
+    Serial.println("Hello monoTFT");
+
+    display.initialize();
+    // display.Low_Power_Mode();
+    display.High_Power_Mode();
+    display.display_on(true);
+    display.display_Inversion(false);
+
+    u8g2_for_st73xx.begin(display);                 // connect u8g2 procedures to Adafruit GFX
+
+    display.clearDisplay();
+    display.display();
+}
+
+void loop() {
+
+    long time = millis();
+    char str[100];
+    sprintf(str, "millis=%.3fs", ((float)time)/1000.00);
+    //display.display_Inversion(true);
+    //display.clearDisplay();
+
+    // 画一条的直线
+   // display.drawLine(10, 20, 10, 70, ST7305_COLOR_BLACK);
+
+    // 画一个三角形
+   // display.drawTriangle(70, 5, 90, 35, 110, 5, ST7305_COLOR_BLACK);
+
+    // 画一个实心三角形
+   // display.drawFilledTriangle(30, 5, 50, 35, 70, 5, ST7305_COLOR_BLACK);
+
+    // 画一个矩形
+    display.drawRectangle(2, 2, 298, 398, ST7305_COLOR_BLACK);
+
+    // 画一个实心矩形
+    //display.drawFilledRectangle(80, 40, 130, 60, ST7305_COLOR_BLACK);
+
+    // 画一个圆形
+    //display.drawCircle(125, 120, 30, ST7305_COLOR_BLACK);
+
+    // 画一个实心圆形
+    //display.drawFilledCircle(125, 120, 20, ST7305_COLOR_BLACK);
+
+    // 画一个多边形
+    //uint polygonPoints1[] = {10, 50, 70, 40, 70, 90, 30, 110, 10, 90};
+    //display.drawPolygon(polygonPoints1, 5, ST7305_COLOR_BLACK);
+
+    // 画一个实心多边形
+    //uint polygonPoints2[] = {10, 120, 70, 110, 70, 160, 30, 180, 10, 160};
+   // display.drawFilledPolygon(polygonPoints2, 5, ST7305_COLOR_BLACK);
+
+    //u8g2_for_st73xx.setFontDirection(0);            // left to right (this is default)
+    //u8g2_for_st73xx.setForegroundColor(ST7305_COLOR_BLACK);      // apply Adafruit GFX color
+    //u8g2_for_st73xx.setBackgroundColor(ST7305_COLOR_WHITE);
+    //u8g2_for_st73xx.setFont(u8g2_font_helvR14_tf);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+    //u8g2_for_st73xx.setFontMode(1);                 // use u8g2 transparent mode (this is default)
+    //u8g2_for_st73xx.setCursor(5,10);                // start writing at this position
+    //u8g2_for_st73xx.print(str);
+    
+    u8g2_for_st73xx.setFontDirection(0);            // left to right (this is default)
+    u8g2_for_st73xx.setForegroundColor(ST7305_COLOR_BLACK);      // apply Adafruit GFX color
+    u8g2_for_st73xx.setBackgroundColor(ST7305_COLOR_WHITE);
+    u8g2_for_st73xx.setFont(u8g2_font_wqy16_t_gb2312b);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+    u8g2_for_st73xx.setFontMode(1);                 // use u8g2 transparent mode (this is default)
+    u8g2_for_st73xx.setCursor(5,20);                // start writing at this position
+    u8g2_for_st73xx.print(F("超低功耗"));
+
+    
+    u8g2_for_st73xx.setFont(u8g2_font_helvR14_tf);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+    u8g2_for_st73xx.setFontMode(1);                 // use u8g2 transparent mode (this is default)
+    u8g2_for_st73xx.setCursor(5,40);                // start writing at this position
+    u8g2_for_st73xx.print(F("Ultra-Low Power"));
+    u8g2_for_st73xx.setFont(u8g2_font_wqy16_t_gb2312b);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+    u8g2_for_st73xx.setCursor(5,60);                // start writing at this position
+    u8g2_for_st73xx.print(F("MonoTFT 4.2inch"));
+    u8g2_for_st73xx.setCursor(5,80);                // start writing at this position
+    u8g2_for_st73xx.print(F("分辨率"));
+    u8g2_for_st73xx.setFont(u8g2_font_helvR14_tf);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+    u8g2_for_st73xx.setCursor(51,80);                // start writing at this position
+    u8g2_for_st73xx.print(F("300X400Dots"));
+    display.drawFilledRectangle(4, 88, 296, 98, ST7305_COLOR_BLACK);
+    
+    u8g2_for_st73xx.setFontDirection(0); 
+    u8g2_for_st73xx.setForegroundColor(ST7305_COLOR_BLACK);      // apply Adafruit GFX color
+    u8g2_for_st73xx.setBackgroundColor(ST7305_COLOR_WHITE);
+    u8g2_for_st73xx.setFont(u8g2_font_wqy16_t_gb2312);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+    u8g2_for_st73xx.setCursor(2,120);                // start writing at this position
+    u8g2_for_st73xx.print(F("【全反射屏 无需背光】"));
+
+    u8g2_for_st73xx.setCursor(5,140);                // start writing at this position
+    u8g2_for_st73xx.print(F("【类电子纸 护眼屏】"));
+    u8g2_for_st73xx.setCursor(5,160);                // start writing at this position
+    u8g2_for_st73xx.print(F("【阳光下清晰可见】"));
+    display.drawRectangle(4,168, 296, 178, ST7305_COLOR_BLACK);
+    u8g2_for_st73xx.setFont(u8g2_font_helvR14_tf);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+    u8g2_for_st73xx.setCursor(5,198);                // start writing at this position
+    u8g2_for_st73xx.print(F("0123456789ABCDEFGHIJKLMNO"));
+
+    display.drawFilledTriangle(30, 210, 5, 240, 55, 240, ST7305_COLOR_BLACK);
+    display.drawCircle(84, 225, 15, ST7305_COLOR_BLACK);
+    display.drawFilledRectangle(128, 210, 158, 240, ST7305_COLOR_BLACK);
+    display.drawLine(5, 245, 296,245, ST7305_COLOR_BLACK);
+
+    u8g2_for_st73xx.setCursor(5,262);                // start writing at this position
+    u8g2_for_st73xx.print(F("~@#￥%……&*abcdefghijklmnopqrstuvw"));
+
+    u8g2_for_st73xx.setFont(u8g2_font_wqy16_t_gb2312b);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+    u8g2_for_st73xx.setCursor(8,340);                // start writing at this position
+    u8g2_for_st73xx.print(F("WWW.WLKLCD.COM"));
+    u8g2_for_st73xx.setCursor(10,360);                // start writing at this position
+    u8g2_for_st73xx.print(F("+86 0755-32882855"));
+    u8g2_for_st73xx.setCursor(5,378);                // start writing at this position
+    u8g2_for_st73xx.print(F("Display DEMO @ESP32"));
+    
+    
+
+
+    u8g2_for_st73xx.setFont(u8g2_font_fub42_tn);  // select u8g2 font from here: https://github.com/olikraus/u8g2/wiki/fntlistall
+    u8g2_for_st73xx.setFontMode(1);                 // use u8g2 transparent mode (this is default)
+    u8g2_for_st73xx.setCursor(8,320);                // start writing at this position
+    static uint8_t min = 0;
+    //u8g2_for_st73xx.printf("20:%02d", min>59 ? min=0: min++);
+    u8g2_for_st73xx.printf("2025-1-18");
+
+
+    display.display_Inversion(false);
+    display.display();
+    Serial.printf("display time = %dms\n", millis() - time);
+
+    delay(1000);
+
+    display.display_Inversion(true);
+    display.display();
+    delay(1000);
+
+}
