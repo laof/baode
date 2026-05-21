@@ -26,6 +26,7 @@
 #include "sht30.h"
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,12 +57,19 @@ static volatile uint8_t  g_time_synced = 0;
 static char              g_date[11]    = "2026-01-01";  /* YYYY-MM-DD\0 */
 static volatile uint8_t  g_hh = 0, g_mm = 0, g_ss = 0;
 
-/* USART2 单字节接收 + 行缓冲（"T:YYYY-MM-DD HH:MM:SS" = 22 字符）*/
+/* USART2 单字节接收 + 行缓冲 */
 static uint8_t  g_uart_rx_byte;
 static char     g_line_buf[32];
 static uint8_t  g_line_len = 0;
-static volatile uint32_t g_rx_total = 0;   /* DEBUG: 累计收到的字节数 */
-static volatile uint8_t  g_rx_last  = 0;   /* DEBUG: 最近一次收到的字节 */
+
+/* 副控连接/Wi-Fi 状态 */
+static volatile uint32_t g_esp_last_seen_ms = 0;   /* 最后一次收到任意帧的 tick */
+static volatile uint8_t  g_wifi_up = 0;            /* 0=down/unknown, 1=up */
+
+/* 天气：0=晴 1=多云 2=阴/雾 3=雨 4=雪，-1=未知 */
+static volatile int8_t   g_w_code   = -1;
+static volatile int8_t   g_w_temp_c = 0;
+static volatile uint32_t g_w_last_seen_ms = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -72,7 +80,9 @@ static void MX_I2C1_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
-                          int16_t temp_x10, uint16_t rh_x10);
+                          int16_t temp_x10, uint16_t rh_x10,
+                          uint8_t esp_online, uint8_t wifi_up,
+                          int8_t w_code, int8_t w_temp_c);
 static void tick_one_second(void);
 /* USER CODE END PFP */
 
@@ -128,6 +138,7 @@ int main(void)
 
   uint32_t last_sec_tick    = HAL_GetTick();
   uint32_t last_sensor_tick = 0;
+  uint32_t last_ping_tick   = 0;
   int16_t  last_temp_x10 = 0;
   uint16_t last_rh_x10   = 0;
   /* USER CODE END 2 */
@@ -141,12 +152,24 @@ int main(void)
     /* USER CODE BEGIN 3 */
     uint32_t now = HAL_GetTick();
 
+    /* 每 5s 向副控发一次 ping "P\n"，让副控回 S:W/S:N 报 Wi-Fi 状态 */
+    if ((now - last_ping_tick) >= 5000U)
+    {
+      last_ping_tick = now;
+      static const uint8_t ping[2] = { 'P', '\n' };
+      HAL_UART_Transmit(&huart2, (uint8_t *)ping, sizeof(ping), 10);
+    }
+
     /* 1Hz：推进本地秒表 + 刷屏 */
     if ((now - last_sec_tick) >= 1000U)
     {
       last_sec_tick += 1000U;
       tick_one_second();
-      render_screen(g_date, g_hh, g_mm, g_ss, last_temp_x10, last_rh_x10);
+      uint8_t esp_online = ((now - g_esp_last_seen_ms) < 12000U) && (g_esp_last_seen_ms != 0);
+      int8_t  w_code   = (g_w_last_seen_ms != 0) ? g_w_code   : (int8_t)-1;
+      int8_t  w_temp_c = (g_w_last_seen_ms != 0) ? g_w_temp_c : (int8_t)0;
+      render_screen(g_date, g_hh, g_mm, g_ss, last_temp_x10, last_rh_x10,
+                    esp_online, g_wifi_up, w_code, w_temp_c);
     }
 
     /* SHT30 每 5s 读一次即可（传感器本身变化不快）*/
@@ -348,7 +371,121 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-/* 本地秒表 +1，加入必要的进位（日期仅在下一次同步帧重新赋值）*/
+/* ===== \u5c0f\u56fe\u6807\u7ed8\u5236\u8f85\u52a9 ===== */
+static void fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t color)
+{
+  for (uint16_t j = 0; j < h; j++)
+    for (uint16_t i = 0; i < w; i++)
+      st7305_draw_pixel(&g_lcd, x + i, y + j, color);
+}
+
+/* ESP \u6a21\u5757\u56fe\u6807\uff1a\u5929\u7ebf + \u82af\u7247\u8eab\u4f53 + \u5f15\u811a\uff0c\u5360 22\u00d720 */
+static void draw_icon_esp(uint16_t x, uint16_t y)
+{
+  /* \u5929\u7ebf */
+  fill_rect(x + 10, y,     2, 4, ST7305_COLOR_BLACK);
+  /* \u82af\u7247\u4e3b\u4f53\u63cf\u8fb9 16\u00d712 */
+  fill_rect(x + 3,  y + 4, 16, 2, ST7305_COLOR_BLACK);
+  fill_rect(x + 3,  y + 14, 16, 2, ST7305_COLOR_BLACK);
+  fill_rect(x + 3,  y + 4, 2,  12, ST7305_COLOR_BLACK);
+  fill_rect(x + 17, y + 4, 2,  12, ST7305_COLOR_BLACK);
+  /* \u4e2d\u95f4\u5c0f\u65b9\u5757\u4ee3\u8868\u82af\u7247\u6807\u8bb0 */
+  fill_rect(x + 9,  y + 8, 4,  4,  ST7305_COLOR_BLACK);
+  /* \u5de6\u53f3\u5404 3 \u6761\u5f15\u811a */
+  for (uint8_t i = 0; i < 3; i++)
+  {
+    fill_rect(x,      y + 6 + i * 3, 3, 1, ST7305_COLOR_BLACK);
+    fill_rect(x + 19, y + 6 + i * 3, 3, 1, ST7305_COLOR_BLACK);
+  }
+}
+
+/* WiFi \u56fe\u6807\uff1a4 \u9053\u7531\u5927\u5230\u5c0f\u7684\u4fe1\u53f7\u6761\uff0c\u5360 26\u00d720
+ * failed = 1 \u65f6\uff0c\u53f3\u4fa7\u52a0\u4e00\u4e2a\u7c97 "!" */
+static void draw_icon_wifi(uint16_t x, uint16_t y, uint8_t failed)
+{
+  fill_rect(x,      y,      22, 3, ST7305_COLOR_BLACK);  /* \u6700\u5927\u5f27 */
+  fill_rect(x + 3,  y + 5,  16, 3, ST7305_COLOR_BLACK);  /* \u4e2d\u5f27 */
+  fill_rect(x + 6,  y + 10, 10, 3, ST7305_COLOR_BLACK);  /* \u5c0f\u5f27 */
+  fill_rect(x + 9,  y + 15, 4,  3, ST7305_COLOR_BLACK);  /* \u5706\u70b9 */
+
+  if (failed)
+  {
+    /* \u53f3\u4fa7\u201c!\u201d\uff1a\u7ad6\u6761 + \u4e0b\u70b9 */
+    fill_rect(x + 26, y,      3, 12, ST7305_COLOR_BLACK);
+    fill_rect(x + 26, y + 15, 3, 3,  ST7305_COLOR_BLACK);
+  }
+}
+
+/* 水滴图标 14x16 填充水滴形状 */
+static void draw_icon_drop(uint16_t x, uint16_t y)
+{
+  fill_rect(x + 6, y,      2,  2, ST7305_COLOR_BLACK);
+  fill_rect(x + 5, y + 2,  4,  2, ST7305_COLOR_BLACK);
+  fill_rect(x + 4, y + 4,  6,  2, ST7305_COLOR_BLACK);
+  fill_rect(x + 3, y + 6,  8,  2, ST7305_COLOR_BLACK);
+  fill_rect(x + 2, y + 8, 10,  6, ST7305_COLOR_BLACK);
+  fill_rect(x + 3, y + 14, 8,  2, ST7305_COLOR_BLACK);
+}
+
+/* 云块起点 (x, y)，占 28x14，多个天气图标共用 */
+static void draw_cloud(uint16_t x, uint16_t y)
+{
+  fill_rect(x + 9,  y + 1,  10, 4, ST7305_COLOR_BLACK);
+  fill_rect(x + 2,  y + 7,  6,  5, ST7305_COLOR_BLACK);
+  fill_rect(x + 20, y + 7,  6,  5, ST7305_COLOR_BLACK);
+  fill_rect(x + 5,  y + 4,  18, 8, ST7305_COLOR_BLACK);
+  fill_rect(x + 1,  y + 10, 26, 3, ST7305_COLOR_BLACK);
+}
+
+/* 天气图标 28x22 code: 0=sun 1=partly 2=cloud 3=rain 4=snow */
+static void draw_icon_weather(uint16_t x, uint16_t y, int8_t code)
+{
+  if (code < 0 || code > 4) return;
+
+  if (code == 0)
+  {
+    fill_rect(x + 8,  y + 5,  12, 12, ST7305_COLOR_BLACK);
+    fill_rect(x + 13, y,       2, 4,  ST7305_COLOR_BLACK);
+    fill_rect(x + 13, y + 18,  2, 4,  ST7305_COLOR_BLACK);
+    fill_rect(x,      y + 10,  4, 2,  ST7305_COLOR_BLACK);
+    fill_rect(x + 24, y + 10,  4, 2,  ST7305_COLOR_BLACK);
+    fill_rect(x + 2,  y + 1,   3, 3,  ST7305_COLOR_BLACK);
+    fill_rect(x + 23, y + 1,   3, 3,  ST7305_COLOR_BLACK);
+    fill_rect(x + 2,  y + 18,  3, 3,  ST7305_COLOR_BLACK);
+    fill_rect(x + 23, y + 18,  3, 3,  ST7305_COLOR_BLACK);
+    return;
+  }
+
+  if (code == 1)
+  {
+    fill_rect(x + 19, y,       6, 6, ST7305_COLOR_BLACK);
+    fill_rect(x + 17, y + 2,   2, 2, ST7305_COLOR_BLACK);
+    fill_rect(x + 25, y + 2,   2, 2, ST7305_COLOR_BLACK);
+    draw_cloud(x, y + 8);
+    return;
+  }
+
+  draw_cloud(x, y + 2);
+
+  if (code == 3)
+  {
+    fill_rect(x + 6,  y + 17, 2, 5, ST7305_COLOR_BLACK);
+    fill_rect(x + 13, y + 17, 2, 5, ST7305_COLOR_BLACK);
+    fill_rect(x + 20, y + 17, 2, 5, ST7305_COLOR_BLACK);
+  }
+  else if (code == 4)
+  {
+    for (uint8_t i = 0; i < 3; i++)
+    {
+      uint16_t cx = x + 6 + i * 7;
+      uint16_t cy = y + 18;
+      fill_rect(cx,     cy + 1, 3, 1, ST7305_COLOR_BLACK);
+      fill_rect(cx + 1, cy,     1, 3, ST7305_COLOR_BLACK);
+    }
+  }
+}
+
+/* \u672c\u5730\u79d2\u8868 +1\uff0c\u52a0\u5165\u5fc5\u8981\u7684\u8fdb\u4f4d\uff08\u65e5\u671f\u4ec5\u5728\u4e0b\u4e00\u6b21\u540c\u6b65\u5e27\u91cd\u65b0\u8d4b\u503c\uff09*/
 static void tick_one_second(void)
 {
   if (g_ss < 59)
@@ -364,44 +501,94 @@ static void tick_one_second(void)
   }
   g_mm = 0;
   g_hh = (uint8_t)((g_hh + 1) % 24);
-  /* 跨天后日期可能差 1 天，下次 NTP 帧会纠正 */
 }
 
 static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
-                          int16_t temp_x10, uint16_t rh_x10)
+                          int16_t temp_x10, uint16_t rh_x10,
+                          uint8_t esp_online, uint8_t wifi_up,
+                          int8_t w_code, int8_t w_temp_c)
 {
   char time_str[16];
   char temp_str[16];
   char hum_str[16];
+  char wtemp_str[8];
+  char dew_str[16];
 
   int16_t temp_abs = (temp_x10 < 0) ? (int16_t)(-temp_x10) : temp_x10;
+
+  /* 露点（×10°C）：Magnus 近似 */
+  int16_t dew_x10 = 0;
+  uint8_t dew_valid = 0;
+  if (rh_x10 > 0)
+  {
+    float T  = (float)temp_x10 * 0.1f;
+    float RH = (float)rh_x10  * 0.1f;
+    if (RH < 1.0f)   RH = 1.0f;
+    if (RH > 100.0f) RH = 100.0f;
+    const float a = 17.27f, b = 237.7f;
+    float gam = (a * T) / (b + T) + logf(RH / 100.0f);
+    float td  = (b * gam) / (a - gam);
+    if (td >  99.9f) td =  99.9f;
+    if (td < -99.9f) td = -99.9f;
+    dew_x10 = (int16_t)(td * 10.0f);
+    dew_valid = 1;
+  }
+  int16_t dew_abs = (dew_x10 < 0) ? (int16_t)(-dew_x10) : dew_x10;
+  /* 露点 < 8.0°C 认为偏干，需要加湿 */
+  uint8_t dry = (uint8_t)(dew_valid && (dew_x10 < 80));
 
   snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", hh, mm, ss);
   snprintf(temp_str, sizeof(temp_str), "T:%s%d.%dC",
            temp_x10 < 0 ? "-" : "", temp_abs / 10, temp_abs % 10);
   snprintf(hum_str,  sizeof(hum_str),  "H:%d.%d%%", rh_x10 / 10, rh_x10 % 10);
-
-  /* DEBUG：把收到的字节总数和最近一字节显示出来。
-   * 字体只支持 0-9 : . C % T H - 空格，所以用 "总数-最近字节ASCII" */
-  char dbg_str[24];
-  snprintf(dbg_str, sizeof(dbg_str), "%lu-%u",
-           (unsigned long)g_rx_total, (unsigned int)g_rx_last);
+  snprintf(wtemp_str, sizeof(wtemp_str), "%dC", (int)w_temp_c);
+  snprintf(dew_str,  sizeof(dew_str),  "%s%d.%dC",
+           dew_x10 < 0 ? "-" : "", dew_abs / 10, dew_abs % 10);
 
   st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
-  /* 日期：scale=3 → 10*18=180px宽、21px高 */
-  st7305_draw_string(&g_lcd, 10,  20, date,     ST7305_COLOR_BLACK, 3);
-  /* 时间：scale=5 → 8*30=240px宽、35px高 */
-  st7305_draw_string(&g_lcd, 10,  70, time_str, ST7305_COLOR_BLACK, 5);
-  /* 温湿度：scale=3 */
-  st7305_draw_string(&g_lcd, 10, 180, temp_str, ST7305_COLOR_BLACK, 3);
-  st7305_draw_string(&g_lcd, 10, 230, hum_str,  ST7305_COLOR_BLACK, 3);
-  /* DEBUG 行：scale=2，放底部 */
-  st7305_draw_string(&g_lcd, 10, 280, dbg_str,  ST7305_COLOR_BLACK, 2);
+
+  /* === 顶部状态栏 === */
+  if (w_code >= 0)
+  {
+    draw_icon_weather(4, 2, w_code);
+    st7305_draw_string(&g_lcd, 38, 4, wtemp_str, ST7305_COLOR_BLACK, 3);
+  }
+  if (esp_online)
+  {
+    draw_icon_esp(230, 4);
+    draw_icon_wifi(262, 4, wifi_up ? 0 : 1);
+  }
+
+  /* === 主要内容 === */
+    st7305_draw_string(&g_lcd, 10,  30, date,     ST7305_COLOR_BLACK, 3);
+  /* \u65f6\u95f4\uff1ascale=5 \u2192 8*30=240px\u5bbd\u300135px\u9ad8 */
+  st7305_draw_string(&g_lcd, 10,  80, time_str, ST7305_COLOR_BLACK, 5);
+  /* \u6e29\u6e7f\u5ea6\uff1ascale=3 */
+  st7305_draw_string(&g_lcd, 10, 190, temp_str, ST7305_COLOR_BLACK, 3);
+  st7305_draw_string(&g_lcd, 10, 240, hum_str,  ST7305_COLOR_BLACK, 3);
+
+  /* 露点行：水满图标 + 数字，偏干时右侧加粗 "!" */
+  if (dew_valid)
+  {
+    draw_icon_drop(10, 292);
+    st7305_draw_string(&g_lcd, 32, 290, dew_str, ST7305_COLOR_BLACK, 3);
+    if (dry)
+    {
+      uint16_t dew_w = (uint16_t)(strlen(dew_str) * 6 * 3);
+      uint16_t bx = (uint16_t)(32 + dew_w + 8);
+      fill_rect(bx, 290,      4, 16, ST7305_COLOR_BLACK);
+      fill_rect(bx, 290 + 20, 4, 4,  ST7305_COLOR_BLACK);
+    }
+  }
+
   st7305_refresh(&g_lcd);
 }
 
 /**
-  * @brief UART RX 完成回调：累积到 '\n' 后解析 "T:YYYY-MM-DD HH:MM:SS"
+  * @brief UART RX 完成回调：解析多种帧
+  *   - "T:YYYY-MM-DD HH:MM:SS\n" (21 字符) -> 同步时间
+  *   - "S:W\n" / "S:N\n" (3 字符)          -> Wi-Fi 状态上报
+  * 任意一次成功收到完整帧都会刷新 ESP 心跳时间。
   */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
@@ -411,8 +598,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   }
 
   uint8_t b = g_uart_rx_byte;
-  g_rx_total++;
-  g_rx_last = b;
 
   if (b == '\r')
   {
@@ -422,7 +607,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   {
     g_line_buf[g_line_len] = '\0';
 
-    /* 期望: T:YYYY-MM-DD HH:MM:SS  (21 字符) */
+    uint8_t frame_ok = 0;
+
+    /* T:YYYY-MM-DD HH:MM:SS  (21 \u5b57\u7b26) */
     if (g_line_len == 21
         && g_line_buf[0]  == 'T' && g_line_buf[1]  == ':'
         && g_line_buf[6]  == '-' && g_line_buf[9]  == '-'
@@ -434,7 +621,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
       uint8_t ss = (uint8_t)((g_line_buf[19] - '0') * 10 + (g_line_buf[20] - '0'));
       if (hh < 24 && mm < 60 && ss < 60)
       {
-        /* 日期部分直接拷贝 10 个字符 "YYYY-MM-DD" */
         for (uint8_t i = 0; i < 10; i++)
         {
           g_date[i] = g_line_buf[2 + i];
@@ -444,7 +630,55 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
         g_mm = mm;
         g_ss = ss;
         g_time_synced = 1;
+        frame_ok = 1;
       }
+    }
+    /* S:W \u6216 S:N (3 \u5b57\u7b26) */
+    else if (g_line_len == 3 && g_line_buf[0] == 'S' && g_line_buf[1] == ':')
+    {
+      if (g_line_buf[2] == 'W')
+      {
+        g_wifi_up = 1;
+        frame_ok = 1;
+      }
+      else if (g_line_buf[2] == 'N')
+      {
+        g_wifi_up = 0;
+        frame_ok = 1;
+      }
+    }
+    /* W:<code>,<temp>  变长，code 为 1 位数字，temp 可带负号 */
+    else if (g_line_len >= 5 && g_line_buf[0] == 'W' && g_line_buf[1] == ':'
+             && g_line_buf[2] >= '0' && g_line_buf[2] <= '9'
+             && g_line_buf[3] == ',')
+    {
+      int8_t wcode = (int8_t)(g_line_buf[2] - '0');
+      int    sign  = 1;
+      uint8_t i    = 4;
+      if (g_line_buf[i] == '-') { sign = -1; i++; }
+      else if (g_line_buf[i] == '+') { i++; }
+      int    val   = 0;
+      uint8_t got  = 0;
+      while (i < g_line_len && g_line_buf[i] >= '0' && g_line_buf[i] <= '9')
+      {
+        val = val * 10 + (g_line_buf[i] - '0');
+        got = 1;
+        i++;
+      }
+      if (got && wcode <= 4)
+      {
+        int v = sign * val;
+        if (v < -99) v = -99;
+        if (v >  99) v =  99;
+        g_w_code         = wcode;
+        g_w_temp_c       = (int8_t)v;
+        g_w_last_seen_ms = HAL_GetTick();
+        frame_ok = 1;
+      }
+    }
+    if (frame_ok)
+    {
+      g_esp_last_seen_ms = HAL_GetTick();
     }
     g_line_len = 0;
   }
@@ -454,7 +688,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   }
   else
   {
-    /* 行过长，丢弃 */
+    /* \u884c\u8fc7\u957f\uff0c\u4e22\u5f03 */
     g_line_len = 0;
   }
 
