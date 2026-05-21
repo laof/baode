@@ -21,13 +21,21 @@ Target DLL:      STLink\ST-LINKIII-KEIL_SWO.dll V3.3.1.0
 Dialog DLL:      TCM.DLL V1.56.6.0
  
 <h2>Project:</h2>
-D:\diy\baode\mx\baobe\MDK-ARM\baobe.uvprojx
-Project File Date:  05/19/2026
+D:\diy\521\baode\baobe\MDK-ARM\baobe.uvprojx
+Project File Date:  05/21/2026
 
 <h2>Output:</h2>
 *** Using Compiler 'V6.24', folder: 'd:\Users\lovalong\AppData\Local\Keil_v5\ARM\ARMCLANG\Bin'
 Build target 'baobe'
-"baobe\baobe.axf" - 0 Error(s), 0 Warning(s).
+linking...
+baobe\baobe.axf: Error: L6218E: Undefined symbol st7305_init (referred from main.o).
+baobe\baobe.axf: Error: L6218E: Undefined symbol st7305_fill (referred from main.o).
+baobe\baobe.axf: Error: L6218E: Undefined symbol st7305_refresh (referred from main.o).
+baobe\baobe.axf: Error: L6218E: Undefined symbol st7305_draw_string (referred from main.o).
+Not enough information to list image symbols.
+Not enough information to list load addresses in the image map.
+Finished: 2 information, 0 warning and 4 error messages.
+"baobe\baobe.axf" - 4 Error(s), 0 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -51,7 +59,8 @@ Package Vendor: Keil
 
    * Component: ARM::CMSIS:CORE@6.2.0
       Include file:  CMSIS/Core/Include/tz_context.h
-Build Time Elapsed:  00:00:00
+Target not created.
+Build Time Elapsed:  00:00:01
 </pre>
 </body>
 </html>
