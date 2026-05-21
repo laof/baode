@@ -10,6 +10,8 @@
 "baobe\stm32l4xx_hal.o"
 "baobe\stm32l4xx_hal_i2c.o"
 "baobe\stm32l4xx_hal_i2c_ex.o"
+"baobe\stm32l4xx_hal_uart.o"
+"baobe\stm32l4xx_hal_uart_ex.o"
 "baobe\stm32l4xx_hal_rcc.o"
 "baobe\stm32l4xx_hal_rcc_ex.o"
 "baobe\stm32l4xx_hal_flash.o"

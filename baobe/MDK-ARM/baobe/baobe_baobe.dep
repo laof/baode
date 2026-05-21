@@ -4,7 +4,7 @@ F (startup_stm32l443xx.s)(0x6A0EFE5F)(--cpu Cortex-M4.fp.sp --pd "__EVAL SETA 1"
 F (../Core/Src/main.c)(0x6A0F16D3)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/main.o -MMD)
 I (..\Core\Inc\main.h)(0x6A0EFE5E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -27,12 +27,14 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 I (..\Core\Inc\st7305.h)(0x6A0EFE5E)
 I (..\Core\Inc\sht30.h)(0x6A0EFE5E)
 F (../Core/Src/stm32l4xx_it.c)(0x6A0F16D3)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_it.o -MMD)
 I (..\Core\Inc\main.h)(0x6A0EFE5E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -55,11 +57,13 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 I (..\Core\Inc\stm32l4xx_it.h)(0x6A0EFE5E)
 F (../Core/Src/stm32l4xx_hal_msp.c)(0x6A0F16D3)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_msp.o -MMD)
 I (..\Core\Inc\main.h)(0x6A0EFE5E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -82,10 +86,12 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Core/Src/st7305.c)(0x6A0F05A5)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/st7305.o -MMD)
 I (..\Core\Inc\st7305.h)(0x6A0EFE5E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -108,10 +114,12 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Core/Src/sht30.c)(0x6A0EFE5E)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/sht30.o -MMD)
 I (..\Core\Inc\sht30.h)(0x6A0EFE5E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -134,9 +142,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_spi.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_spi.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -159,9 +169,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_spi_ex.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_spi_ex.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -184,9 +196,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -209,9 +223,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_i2c.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_i2c.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -234,9 +250,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_i2c_ex.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_i2c_ex.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -259,9 +277,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_uart.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_uart.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -284,9 +304,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_uart_ex.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_uart_ex.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -309,9 +331,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_rcc.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_rcc.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -334,9 +358,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_rcc_ex.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_rcc_ex.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -359,9 +385,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_flash.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_flash.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -384,9 +412,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_flash_ex.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_flash_ex.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -409,9 +439,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_flash_ramfunc.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_flash_ramfunc.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -434,9 +466,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_gpio.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_gpio.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -459,9 +493,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_dma.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_dma.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -484,9 +520,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_dma_ex.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_dma_ex.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -509,9 +547,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_pwr.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_pwr.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -534,9 +574,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_pwr_ex.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_pwr_ex.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -559,9 +601,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_cortex.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_cortex.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -584,9 +628,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_exti.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_exti.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -609,9 +655,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_tim.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_tim.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -634,9 +682,11 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_tim_ex.c)(0x6A0EFE5F)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/stm32l4xx_hal_tim_ex.o -MMD)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
@@ -659,13 +709,15 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
 F (../Core/Src/system_stm32l4xx.c)(0x6A0EFE5E)(-xc -std=c99 --target=arm-arm-none-eabi -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -c-fno-rtti -funsigned-char -fshort-enums -fshort-wchar-D__EVAL -gdwarf-4 -O3 -ffunction-sections -Wno-packed -Wno-missing-variable-declarations -Wno-missing-prototypes -Wno-missing-noreturn -Wno-sign-conversion -Wno-nonportable-include-path -Wno-reserved-id-macro -Wno-unused-macros -Wno-documentation-unknown-command -Wno-documentation -Wno-license-management -Wno-parentheses-equality -Wno-reserved-identifier -I ../Core/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc -I ../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I ../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I ../Drivers/CMSIS/Include-I./RTE/_baobe-ID:/Users/lovalong/AppData/Local/Arm/Packs/ARM/CMSIS/6.3.0/CMSIS/Core/Include-ID:/Users/lovalong/AppData/Local/Arm/Packs/Keil/STM32L4xx_DFP/2.0.0/Drivers/CMSIS/Device/ST/STM32L4xx/Include-D__UVISION_VERSION="543" -DSTM32L443xx -D_RTE_ -DUSE_HAL_DRIVER -DSTM32L443xx-o baobe/system_stm32l4xx.o -MMD)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l4xx.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\stm32l443xx.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Include\core_cm4.h)(0x6A0EFE5F)
 I (..\Drivers\CMSIS\Device\ST\STM32L4xx\Include\system_stm32l4xx.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal.h)(0x6A0EFE5F)
-I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0EFE5E)
+I (..\Core\Inc\stm32l4xx_hal_conf.h)(0x6A0F239E)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_rcc.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_def.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\Legacy\stm32_hal_legacy.h)(0x6A0EFE5F)
@@ -684,3 +736,5 @@ I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_pwr_ex.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi.h)(0x6A0EFE5F)
 I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_spi_ex.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart.h)(0x6A0EFE5F)
+I (..\Drivers\STM32L4xx_HAL_Driver\Inc\stm32l4xx_hal_uart_ex.h)(0x6A0EFE5F)
