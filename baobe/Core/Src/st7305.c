@@ -73,12 +73,13 @@ static const uint8_t *st7305_get_glyph(char ch) {
 }
 
 void st7305_init(ST7305_t *lcd) {
+    HAL_GPIO_WritePin(lcd->cs_port, lcd->cs_pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(lcd->rst_port, lcd->rst_pin, GPIO_PIN_SET);
-    HAL_Delay(10);
+    HAL_Delay(20);
     HAL_GPIO_WritePin(lcd->rst_port, lcd->rst_pin, GPIO_PIN_RESET);
-    HAL_Delay(10);
+    HAL_Delay(20);
     HAL_GPIO_WritePin(lcd->rst_port, lcd->rst_pin, GPIO_PIN_SET);
-    HAL_Delay(10);
+    HAL_Delay(120);
 
     st7305_write_cmd(lcd, 0xD6);
     st7305_write_data(lcd, 0x17);
@@ -194,6 +195,9 @@ void st7305_init(ST7305_t *lcd) {
 
     st7305_fill(lcd, ST7305_COLOR_WHITE);
     st7305_refresh(lcd);
+
+    /* 切到 HPM 让首屏快速可见；如需省电，调用方可再发 0x39 切回 LPM */
+    st7305_write_cmd(lcd, 0x38);
 }
 
 void st7305_fill(ST7305_t *lcd, uint8_t color) {

@@ -100,6 +100,17 @@ int main(void)
 
   st7305_init(&g_lcd);
 
+  /* === 活体测试：整屏黑/白反转 3 次。如果接线和供电正常，会看到明显闪烁 === */
+  for (int i = 0; i < 3; i++)
+  {
+    st7305_fill(&g_lcd, ST7305_COLOR_BLACK);
+    st7305_refresh(&g_lcd);
+    HAL_Delay(500);
+    st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
+    st7305_refresh(&g_lcd);
+    HAL_Delay(500);
+  }
+
   /* Demo: 先显示一下固定内容，验证屏幕 */
   render_screen(12, 34, 256, 587);
 
