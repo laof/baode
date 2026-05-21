@@ -416,71 +416,98 @@ static void draw_icon_wifi(uint16_t x, uint16_t y, uint8_t failed)
   }
 }
 
-/* 水滴图标 14x16 填充水滴形状 */
-static void draw_icon_drop(uint16_t x, uint16_t y)
+/* 水滴图标 14×16 × s */
+static void draw_icon_drop(uint16_t x, uint16_t y, uint8_t s)
 {
-  fill_rect(x + 6, y,      2,  2, ST7305_COLOR_BLACK);
-  fill_rect(x + 5, y + 2,  4,  2, ST7305_COLOR_BLACK);
-  fill_rect(x + 4, y + 4,  6,  2, ST7305_COLOR_BLACK);
-  fill_rect(x + 3, y + 6,  8,  2, ST7305_COLOR_BLACK);
-  fill_rect(x + 2, y + 8, 10,  6, ST7305_COLOR_BLACK);
-  fill_rect(x + 3, y + 14, 8,  2, ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + 6 * s), (uint16_t)(y),         (uint16_t)( 2 * s), (uint16_t)( 2 * s), ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + 5 * s), (uint16_t)(y +  2 * s), (uint16_t)( 4 * s), (uint16_t)( 2 * s), ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + 4 * s), (uint16_t)(y +  4 * s), (uint16_t)( 6 * s), (uint16_t)( 2 * s), ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + 3 * s), (uint16_t)(y +  6 * s), (uint16_t)( 8 * s), (uint16_t)( 2 * s), ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + 2 * s), (uint16_t)(y +  8 * s), (uint16_t)(10 * s), (uint16_t)( 6 * s), ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + 3 * s), (uint16_t)(y + 14 * s), (uint16_t)( 8 * s), (uint16_t)( 2 * s), ST7305_COLOR_BLACK);
 }
 
-/* 云块起点 (x, y)，占 28x14，多个天气图标共用 */
-static void draw_cloud(uint16_t x, uint16_t y)
+/* 云块起点 (x, y)，占 28×14 × s，多个天气图标共用 */
+static void draw_cloud(uint16_t x, uint16_t y, uint8_t s)
 {
-  fill_rect(x + 9,  y + 1,  10, 4, ST7305_COLOR_BLACK);
-  fill_rect(x + 2,  y + 7,  6,  5, ST7305_COLOR_BLACK);
-  fill_rect(x + 20, y + 7,  6,  5, ST7305_COLOR_BLACK);
-  fill_rect(x + 5,  y + 4,  18, 8, ST7305_COLOR_BLACK);
-  fill_rect(x + 1,  y + 10, 26, 3, ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x +  9 * s), (uint16_t)(y +  1 * s), (uint16_t)(10 * s), (uint16_t)(4 * s), ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x +  2 * s), (uint16_t)(y +  7 * s), (uint16_t)( 6 * s), (uint16_t)(5 * s), ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + 20 * s), (uint16_t)(y +  7 * s), (uint16_t)( 6 * s), (uint16_t)(5 * s), ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x +  5 * s), (uint16_t)(y +  4 * s), (uint16_t)(18 * s), (uint16_t)(8 * s), ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x +  1 * s), (uint16_t)(y + 10 * s), (uint16_t)(26 * s), (uint16_t)(3 * s), ST7305_COLOR_BLACK);
 }
 
-/* 天气图标 28x22 code: 0=sun 1=partly 2=cloud 3=rain 4=snow */
-static void draw_icon_weather(uint16_t x, uint16_t y, int8_t code)
+/* 天气图标 28×22 × s. code: 0=sun 1=partly 2=cloud 3=rain 4=snow */
+static void draw_icon_weather(uint16_t x, uint16_t y, uint8_t s, int8_t code)
 {
   if (code < 0 || code > 4) return;
 
   if (code == 0)
   {
-    fill_rect(x + 8,  y + 5,  12, 12, ST7305_COLOR_BLACK);
-    fill_rect(x + 13, y,       2, 4,  ST7305_COLOR_BLACK);
-    fill_rect(x + 13, y + 18,  2, 4,  ST7305_COLOR_BLACK);
-    fill_rect(x,      y + 10,  4, 2,  ST7305_COLOR_BLACK);
-    fill_rect(x + 24, y + 10,  4, 2,  ST7305_COLOR_BLACK);
-    fill_rect(x + 2,  y + 1,   3, 3,  ST7305_COLOR_BLACK);
-    fill_rect(x + 23, y + 1,   3, 3,  ST7305_COLOR_BLACK);
-    fill_rect(x + 2,  y + 18,  3, 3,  ST7305_COLOR_BLACK);
-    fill_rect(x + 23, y + 18,  3, 3,  ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x +  8 * s), (uint16_t)(y +  5 * s), (uint16_t)(12 * s), (uint16_t)(12 * s), ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x + 13 * s), (uint16_t)(y),          (uint16_t)( 2 * s), (uint16_t)( 4 * s), ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x + 13 * s), (uint16_t)(y + 18 * s), (uint16_t)( 2 * s), (uint16_t)( 4 * s), ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x),          (uint16_t)(y + 10 * s), (uint16_t)( 4 * s), (uint16_t)( 2 * s), ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x + 24 * s), (uint16_t)(y + 10 * s), (uint16_t)( 4 * s), (uint16_t)( 2 * s), ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x +  2 * s), (uint16_t)(y +  1 * s), (uint16_t)( 3 * s), (uint16_t)( 3 * s), ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x + 23 * s), (uint16_t)(y +  1 * s), (uint16_t)( 3 * s), (uint16_t)( 3 * s), ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x +  2 * s), (uint16_t)(y + 18 * s), (uint16_t)( 3 * s), (uint16_t)( 3 * s), ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x + 23 * s), (uint16_t)(y + 18 * s), (uint16_t)( 3 * s), (uint16_t)( 3 * s), ST7305_COLOR_BLACK);
     return;
   }
 
   if (code == 1)
   {
-    fill_rect(x + 19, y,       6, 6, ST7305_COLOR_BLACK);
-    fill_rect(x + 17, y + 2,   2, 2, ST7305_COLOR_BLACK);
-    fill_rect(x + 25, y + 2,   2, 2, ST7305_COLOR_BLACK);
-    draw_cloud(x, y + 8);
+    fill_rect((uint16_t)(x + 19 * s), (uint16_t)(y),          (uint16_t)( 6 * s), (uint16_t)( 6 * s), ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x + 17 * s), (uint16_t)(y +  2 * s), (uint16_t)( 2 * s), (uint16_t)( 2 * s), ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x + 25 * s), (uint16_t)(y +  2 * s), (uint16_t)( 2 * s), (uint16_t)( 2 * s), ST7305_COLOR_BLACK);
+    draw_cloud(x, (uint16_t)(y + 8 * s), s);
     return;
   }
 
-  draw_cloud(x, y + 2);
+  draw_cloud(x, (uint16_t)(y + 2 * s), s);
 
   if (code == 3)
   {
-    fill_rect(x + 6,  y + 17, 2, 5, ST7305_COLOR_BLACK);
-    fill_rect(x + 13, y + 17, 2, 5, ST7305_COLOR_BLACK);
-    fill_rect(x + 20, y + 17, 2, 5, ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x +  6 * s), (uint16_t)(y + 17 * s), (uint16_t)(2 * s), (uint16_t)(5 * s), ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x + 13 * s), (uint16_t)(y + 17 * s), (uint16_t)(2 * s), (uint16_t)(5 * s), ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x + 20 * s), (uint16_t)(y + 17 * s), (uint16_t)(2 * s), (uint16_t)(5 * s), ST7305_COLOR_BLACK);
   }
   else if (code == 4)
   {
     for (uint8_t i = 0; i < 3; i++)
     {
-      uint16_t cx = x + 6 + i * 7;
-      uint16_t cy = y + 18;
-      fill_rect(cx,     cy + 1, 3, 1, ST7305_COLOR_BLACK);
-      fill_rect(cx + 1, cy,     1, 3, ST7305_COLOR_BLACK);
+      uint16_t cx = (uint16_t)(x + (6 + i * 7) * s);
+      uint16_t cy = (uint16_t)(y + 18 * s);
+      fill_rect(cx,                       (uint16_t)(cy + 1 * s), (uint16_t)(3 * s), (uint16_t)(1 * s), ST7305_COLOR_BLACK);
+      fill_rect((uint16_t)(cx + 1 * s),   cy,                     (uint16_t)(1 * s), (uint16_t)(3 * s), ST7305_COLOR_BLACK);
+    }
+  }
+}
+
+/* 信号基站图标 28×22：主杆 + 底座 + 3 道递增信号条；has_signal=0 时右侧画一个叉 */
+static void draw_icon_signal(uint16_t x, uint16_t y, uint8_t has_signal)
+{
+  /* 塔身 + 天线 */
+  fill_rect(x + 7, y,        2, 22, ST7305_COLOR_BLACK);
+  /* 底座 */
+  fill_rect(x + 4, y + 19,   8,  3, ST7305_COLOR_BLACK);
+  /* 塔顶横档 */
+  fill_rect(x + 5, y +  2,   6,  2, ST7305_COLOR_BLACK);
+
+  if (has_signal)
+  {
+    fill_rect(x + 14, y + 16, 3,  6, ST7305_COLOR_BLACK);
+    fill_rect(x + 19, y + 12, 3, 10, ST7305_COLOR_BLACK);
+    fill_rect(x + 24, y +  7, 3, 15, ST7305_COLOR_BLACK);
+  }
+  else
+  {
+    /* 右侧画个叉：两条对角线，每条用 14 个 2x2 像素点 */
+    for (uint8_t i = 0; i < 14; i++)
+    {
+      fill_rect((uint16_t)(x + 13 + i), (uint16_t)(y +  4 + i), 2, 2, ST7305_COLOR_BLACK);
+      fill_rect((uint16_t)(x + 13 + i), (uint16_t)(y + 17 - i), 2, 2, ST7305_COLOR_BLACK);
     }
   }
 }
@@ -513,6 +540,7 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   char hum_str[16];
   char wtemp_str[8];
   char dew_str[16];
+  char dt_str[24];
 
   int16_t temp_abs = (temp_x10 < 0) ? (int16_t)(-temp_x10) : temp_x10;
 
@@ -544,42 +572,45 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   snprintf(wtemp_str, sizeof(wtemp_str), "%dC", (int)w_temp_c);
   snprintf(dew_str,  sizeof(dew_str),  "%s%d.%dC",
            dew_x10 < 0 ? "-" : "", dew_abs / 10, dew_abs % 10);
+  snprintf(dt_str, sizeof(dt_str), "%s %s", date, time_str);
 
   st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
 
-  /* === 顶部状态栏 === */
-  if (w_code >= 0)
-  {
-    draw_icon_weather(4, 2, w_code);
-    st7305_draw_string(&g_lcd, 38, 4, wtemp_str, ST7305_COLOR_BLACK, 3);
-  }
+  /* === 顶部：只放 ESP + 信号塔 === */
   if (esp_online)
   {
-    draw_icon_esp(230, 4);
-    draw_icon_wifi(262, 4, wifi_up ? 0 : 1);
+    draw_icon_esp(236, 4);
+    draw_icon_signal(266, 4, wifi_up);
+  }
+
+  /* === 天气独占一行，4x 大图标一眼看到 === */
+  if (w_code >= 0)
+  {
+    draw_icon_weather(10, 32, 4, w_code);     /* 4x → 112×88 */
+    st7305_draw_string(&g_lcd, 140, 52, wtemp_str, ST7305_COLOR_BLACK, 8);
   }
 
   /* === 主要内容 === */
-    st7305_draw_string(&g_lcd, 10,  30, date,     ST7305_COLOR_BLACK, 3);
-  /* \u65f6\u95f4\uff1ascale=5 \u2192 8*30=240px\u5bbd\u300135px\u9ad8 */
-  st7305_draw_string(&g_lcd, 10,  80, time_str, ST7305_COLOR_BLACK, 5);
-  /* \u6e29\u6e7f\u5ea6\uff1ascale=3 */
+  /* 室内温湿度：size=3 保持 */
   st7305_draw_string(&g_lcd, 10, 190, temp_str, ST7305_COLOR_BLACK, 3);
   st7305_draw_string(&g_lcd, 10, 240, hum_str,  ST7305_COLOR_BLACK, 3);
 
   /* 露点行：水满图标 + 数字，偏干时右侧加粗 "!" */
   if (dew_valid)
   {
-    draw_icon_drop(10, 292);
-    st7305_draw_string(&g_lcd, 32, 290, dew_str, ST7305_COLOR_BLACK, 3);
+    draw_icon_drop(10, 124, 2);   /* 2x → 28×32 */
+    st7305_draw_string(&g_lcd, 46, 130, dew_str, ST7305_COLOR_BLACK, 3);
     if (dry)
     {
       uint16_t dew_w = (uint16_t)(strlen(dew_str) * 6 * 3);
-      uint16_t bx = (uint16_t)(32 + dew_w + 8);
-      fill_rect(bx, 290,      4, 16, ST7305_COLOR_BLACK);
-      fill_rect(bx, 290 + 20, 4, 4,  ST7305_COLOR_BLACK);
+      uint16_t bx = (uint16_t)(46 + dew_w + 8);
+      fill_rect(bx, 130,      4, 16, ST7305_COLOR_BLACK);
+      fill_rect(bx, 130 + 20, 4, 4,  ST7305_COLOR_BLACK);
     }
   }
+
+  /* 底部：年月日 时分秒 小字 */
+  st7305_draw_string(&g_lcd, 4, 380, dt_str, ST7305_COLOR_BLACK, 2);
 
   st7305_refresh(&g_lcd);
 }
