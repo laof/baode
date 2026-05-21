@@ -628,9 +628,9 @@ Command Line: --debug --xref --diag_suppress=9931,A1950W --cpu=Cortex-M4.fp.sp
 --depend=baobe\startup_stm32l443xx.d -obaobe\startup_stm32l443xx.o -I.\RTE\_bao
 be -ID:\Users\lovalong\AppData\Local\Arm\Packs\ARM\CMSIS\6.3.0\CMSIS\Core\Inclu
 de -ID:\Users\lovalong\AppData\Local\Arm\Packs\Keil\STM32L4xx_DFP\2.0.0\Drivers
-\CMSIS\Device\ST\STM32L4xx\Include --predefine="__EVAL SETA 1" --predefine="__U
-VISION_VERSION SETA 543" --predefine="STM32L443xx SETA 1" --predefine="_RTE_ SE
-TA 1" --list=startup_stm32l443xx.lst startup_stm32l443xx.s
+\CMSIS\Device\ST\STM32L4xx\Include --predefine="__UVISION_VERSION SETA 543" --p
+redefine="STM32L443xx SETA 1" --predefine="_RTE_ SETA 1" --list=startup_stm32l4
+43xx.lst startup_stm32l443xx.s
 
 
 
@@ -1596,4 +1596,4 @@ Symbol: __use_two_region_memory
       None
 Comment: __use_two_region_memory unused
 3 symbols
-435 symbols in table
+434 symbols in table
