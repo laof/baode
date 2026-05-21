@@ -45,10 +45,21 @@
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi1;
 I2C_HandleTypeDef hi2c1;
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 static ST7305_t g_lcd;
 static SHT30_t  g_sht30;
+
+/* 本地维护的时钟（被 UART 同步帧出现时覆盖，平时按秒自走）*/
+static volatile uint8_t  g_time_synced = 0;
+static char              g_date[11]    = "2026-01-01";  /* YYYY-MM-DD\0 */
+static volatile uint8_t  g_hh = 0, g_mm = 0, g_ss = 0;
+
+/* USART2 单字节接收 + 行缓冲（"T:YYYY-MM-DD HH:MM:SS" = 22 字符）*/
+static uint8_t  g_uart_rx_byte;
+static char     g_line_buf[32];
+static uint8_t  g_line_len = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -56,8 +67,11 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-static void render_screen(uint8_t hour, uint8_t minute, int16_t temp_x10, uint16_t rh_x10);
+static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
+                          int16_t temp_x10, uint16_t rh_x10);
+static void tick_one_second(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -95,6 +109,7 @@ int main(void)
   MX_GPIO_Init();
   MX_SPI1_Init();
   MX_I2C1_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   g_lcd.hspi     = &hspi1;
   g_lcd.cs_port  = LCD_CS_GPIO_Port;  g_lcd.cs_pin  = LCD_CS_Pin;
@@ -106,22 +121,13 @@ int main(void)
   /* SHT30 I2C 7-bit 地址：ADDR 脚接 GND => 0x44；接 VDD => 0x45 */
   sht30_init(&g_sht30, &hi2c1, 0x44);
 
-  /* === 活体测试：整屏黑/白反转 3 次。如果接线和供电正常，会看到明显闪烁 === */
-  for (int i = 0; i < 3; i++)
-  {
-    st7305_fill(&g_lcd, ST7305_COLOR_BLACK);
-    st7305_refresh(&g_lcd);
-    HAL_Delay(500);
-    st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
-    st7305_refresh(&g_lcd);
-    HAL_Delay(500);
-  }
+  /* 启动 USART2 接收（单字节中断，循环重启）*/
+  HAL_UART_Receive_IT(&huart2, &g_uart_rx_byte, 1);
 
-  /* Demo: 先显示一下固定内容，验证屏幕 */
-  render_screen(12, 34, 256, 587);
-
-  uint32_t last_tick = 0;
-  uint8_t  hh = 12, mm = 34;
+  uint32_t last_sec_tick    = HAL_GetTick();
+  uint32_t last_sensor_tick = 0;
+  int16_t  last_temp_x10 = 0;
+  uint16_t last_rh_x10   = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -131,25 +137,26 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    if ((HAL_GetTick() - last_tick) >= 5000U)
+    uint32_t now = HAL_GetTick();
+
+    /* 1Hz：推进本地秒表 + 刷屏 */
+    if ((now - last_sec_tick) >= 1000U)
     {
-      last_tick = HAL_GetTick();
+      last_sec_tick += 1000U;
+      tick_one_second();
+      render_screen(g_date, g_hh, g_mm, g_ss, last_temp_x10, last_rh_x10);
+    }
 
-      /* TODO: 接入 RTC 后从 RTC 读取时间；先用计数模拟 */
-      mm++;
-      if (mm >= 60) { mm = 0; hh = (uint8_t)((hh + 1) % 24); }
-
-      /* 从 SHT30 读取真实温湿度，读失败则保留上次值 */
+    /* SHT30 每 5s 读一次即可（传感器本身变化不快）*/
+    if ((now - last_sensor_tick) >= 5000U)
+    {
+      last_sensor_tick = now;
       SHT30_Readout r;
-      static int16_t  last_temp_x10 = 0;
-      static uint16_t last_rh_x10   = 0;
       if (sht30_read(&g_sht30, &r) == HAL_OK)
       {
         last_temp_x10 = r.temp_x10;
         last_rh_x10   = r.rh_x10;
       }
-
-      render_screen(hh, mm, last_temp_x10, last_rh_x10);
     }
   }
   /* USER CODE END 3 */
@@ -280,6 +287,27 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief USART2 Initialization (PA2=TX, PA3=RX, 115200 8N1)
+  */
+static void MX_USART2_UART_Init(void)
+{
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -317,24 +345,108 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-static void render_screen(uint8_t hour, uint8_t minute, int16_t temp_x10, uint16_t rh_x10)
+
+/* 本地秒表 +1，加入必要的进位（日期仅在下一次同步帧重新赋值）*/
+static void tick_one_second(void)
 {
-  char time_str[8];
+  if (g_ss < 59)
+  {
+    g_ss++;
+    return;
+  }
+  g_ss = 0;
+  if (g_mm < 59)
+  {
+    g_mm++;
+    return;
+  }
+  g_mm = 0;
+  g_hh = (uint8_t)((g_hh + 1) % 24);
+  /* 跨天后日期可能差 1 天，下次 NTP 帧会纠正 */
+}
+
+static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
+                          int16_t temp_x10, uint16_t rh_x10)
+{
+  char time_str[16];
   char temp_str[16];
   char hum_str[16];
 
   int16_t temp_abs = (temp_x10 < 0) ? (int16_t)(-temp_x10) : temp_x10;
 
-  snprintf(time_str, sizeof(time_str), "%02d:%02d", hour, minute);
+  snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", hh, mm, ss);
   snprintf(temp_str, sizeof(temp_str), "T:%s%d.%dC",
            temp_x10 < 0 ? "-" : "", temp_abs / 10, temp_abs % 10);
   snprintf(hum_str,  sizeof(hum_str),  "H:%d.%d%%", rh_x10 / 10, rh_x10 % 10);
 
   st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
-  st7305_draw_string(&g_lcd, 10,  20, time_str, ST7305_COLOR_BLACK, 4);
-  st7305_draw_string(&g_lcd, 10, 120, temp_str, ST7305_COLOR_BLACK, 3);
-  st7305_draw_string(&g_lcd, 10, 180, hum_str,  ST7305_COLOR_BLACK, 3);
+  /* 日期：scale=3 → 10*18=180px宽、21px高 */
+  st7305_draw_string(&g_lcd, 10,  20, date,     ST7305_COLOR_BLACK, 3);
+  /* 时间：scale=5 → 8*30=240px宽、35px高 */
+  st7305_draw_string(&g_lcd, 10,  70, time_str, ST7305_COLOR_BLACK, 5);
+  /* 温湿度：scale=3 */
+  st7305_draw_string(&g_lcd, 10, 180, temp_str, ST7305_COLOR_BLACK, 3);
+  st7305_draw_string(&g_lcd, 10, 230, hum_str,  ST7305_COLOR_BLACK, 3);
   st7305_refresh(&g_lcd);
+}
+
+/**
+  * @brief UART RX 完成回调：累积到 '\n' 后解析 "T:YYYY-MM-DD HH:MM:SS"
+  */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  if (huart->Instance != USART2)
+  {
+    return;
+  }
+
+  uint8_t b = g_uart_rx_byte;
+
+  if (b == '\r')
+  {
+    /* ignore */
+  }
+  else if (b == '\n')
+  {
+    g_line_buf[g_line_len] = '\0';
+
+    /* 期望: T:YYYY-MM-DD HH:MM:SS  (22 字符) */
+    if (g_line_len == 22
+        && g_line_buf[0]  == 'T' && g_line_buf[1]  == ':'
+        && g_line_buf[6]  == '-' && g_line_buf[9]  == '-'
+        && g_line_buf[12] == ' '
+        && g_line_buf[15] == ':' && g_line_buf[18] == ':')
+    {
+      uint8_t hh = (uint8_t)((g_line_buf[13] - '0') * 10 + (g_line_buf[14] - '0'));
+      uint8_t mm = (uint8_t)((g_line_buf[16] - '0') * 10 + (g_line_buf[17] - '0'));
+      uint8_t ss = (uint8_t)((g_line_buf[19] - '0') * 10 + (g_line_buf[20] - '0'));
+      if (hh < 24 && mm < 60 && ss < 60)
+      {
+        /* 日期部分直接拷贝 10 个字符 "YYYY-MM-DD" */
+        for (uint8_t i = 0; i < 10; i++)
+        {
+          g_date[i] = g_line_buf[2 + i];
+        }
+        g_date[10] = '\0';
+        g_hh = hh;
+        g_mm = mm;
+        g_ss = ss;
+        g_time_synced = 1;
+      }
+    }
+    g_line_len = 0;
+  }
+  else if (g_line_len < sizeof(g_line_buf) - 1)
+  {
+    g_line_buf[g_line_len++] = (char)b;
+  }
+  else
+  {
+    /* 行过长，丢弃 */
+    g_line_len = 0;
+  }
+
+  HAL_UART_Receive_IT(huart, &g_uart_rx_byte, 1);
 }
 /* USER CODE END 4 */
 
