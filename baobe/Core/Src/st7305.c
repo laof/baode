@@ -174,7 +174,7 @@ void st7305_init(ST7305_t *lcd) {
     st7305_write_cmd(lcd, 0xB8);
     st7305_write_data(lcd, 0x29);
 
-    st7305_write_cmd(lcd, 0x21);
+    st7305_write_cmd(lcd, 0x20);   /* Display Inversion OFF：0x00=面板原色, 0xFF=黑 */
 
     st7305_write_cmd(lcd, 0x2A);
     st7305_write_data(lcd, 0x12);
