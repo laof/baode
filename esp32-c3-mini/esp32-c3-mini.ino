@@ -3,12 +3,12 @@
  *  - 联 Wi-Fi
  *  - NTP 同步时间（北京时间 UTC+8）
  *  - 通过 Serial1 (GPIO4=TX, GPIO5=RX) 以 115200 8N1
- *    每 30 秒发送一帧 "T:HH:MM\n" 给主控 STM32L443
+ *    每 10 秒发送一帧 "T:YYYY-MM-DD HH:MM:SS\n" 给主控 STM32L443
  *
- * 接线：
- *   ESP32 GPIO4 (TX) ──► STM32 PA3 (USART2_RX)
- *   ESP32 GPIO5 (RX) ──► STM32 PA2 (USART2_TX)   (预留)
- *   ESP32 GND        ──► STM32 GND
+ * 接线（在原有基础上加 3 根）：
+ *   ESP32 GPIO4 (Serial1 TX) ──► STM32 PA3 (USART2_RX)   时间数据，必接
+ *   ESP32 GPIO5 (Serial1 RX) ──► STM32 PA2 (USART2_TX)   预留双向，可不接
+ *   ESP32 GND                ──► STM32 GND               共地，必接
  */
 
 #include <WiFi.h>

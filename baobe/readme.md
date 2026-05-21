@@ -29,17 +29,20 @@
 
 ## ESP32-C3-Pro Mini 副控（UART 时间桥）
 
-ESP32 联 Wi-Fi → NTP 同步 → 每 30s 通过 UART 发送 `T:HH:MM\n` 给 STM32。
+ESP32 联 Wi-Fi → NTP 同步 → 每 10s 通过 UART 发送 `T:YYYY-MM-DD HH:MM:SS\n` 给 STM32。
 
-| STM32 (USART2) | ESP32-C3 | 说明 |
+**物理接线（在原有基础上加 3 根）**
+
+| ESP32-C3 | STM32 (USART2) | 说明 |
 |---|---|---|
-| 3V3 / 独立供电 | 3V3 | 两板可共用电源，**必须共地** |
-| GND | GND | 共地 |
-| **A3** (USART2_RX) | **GPIO4** (Serial1 TX) | ESP→STM 时间数据（核心连接） |
-| **A2** (USART2_TX) | **GPIO5** (Serial1 RX) | 预留双向，暂不用，可不接 |
+| **GPIO4** (Serial1 TX) | **PA3** (USART2_RX) | 时间数据 ESP→STM（必接） |
+| **GPIO5** (Serial1 RX) | **PA2** (USART2_TX) | 预留双向，暂时可不接 |
+| **GND** | **GND** | 共地（必接） |
+
+> 两板供电可各自独立（ESP32 用 USB 供，STM32 用调试器供），但 **GND 必须连通**，否则 UART 电平没有参考点。
 
 波特率 **115200 8N1**，帧格式 `T:YYYY-MM-DD HH:MM:SS\n`（22 字节，例如 `T:2026-12-06 14:45:01\n`）。ESP32 每 10 秒发一帧，STM32 端按本地秒数自走，屏幕每秒刷新一次。
 
 > ESP32-C3 默认 `Serial` 走 USB-CDC，调试日志看 USB；与 STM32 通讯走 `Serial1` (GPIO4/5)，互不冲突。
-> ESP32 端 Wi-Fi SSID/密码在 `esp32-c3-mini.ino` 顶部的 `WIFI_SSID`/`WIFI_PASS` 修改。
+> Wi-Fi SSID/密码放在 `esp32-c3-mini/secrets.h`（已被 `.gitignore` 排除），首次使用复制 `secrets.h.example` 为 `secrets.h` 并填入。
 
