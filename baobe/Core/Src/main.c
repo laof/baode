@@ -44,6 +44,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi1;
+I2C_HandleTypeDef hi2c1;
 
 /* USER CODE BEGIN PV */
 static ST7305_t g_lcd;
@@ -54,6 +55,7 @@ static SHT30_t  g_sht30;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 static void render_screen(uint8_t hour, uint8_t minute, int16_t temp_x10, uint16_t rh_x10);
 /* USER CODE END PFP */
@@ -92,6 +94,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_SPI1_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   g_lcd.hspi     = &hspi1;
   g_lcd.cs_port  = LCD_CS_GPIO_Port;  g_lcd.cs_pin  = LCD_CS_Pin;
@@ -99,6 +102,9 @@ int main(void)
   g_lcd.rst_port = LCD_RES_GPIO_Port; g_lcd.rst_pin = LCD_RES_Pin;
 
   st7305_init(&g_lcd);
+
+  /* SHT30 I2C 7-bit 地址：ADDR 脚接 GND => 0x44；接 VDD => 0x45 */
+  sht30_init(&g_sht30, &hi2c1, 0x44);
 
   /* === 活体测试：整屏黑/白反转 3 次。如果接线和供电正常，会看到明显闪烁 === */
   for (int i = 0; i < 3; i++)
@@ -133,11 +139,17 @@ int main(void)
       mm++;
       if (mm >= 60) { mm = 0; hh = (uint8_t)((hh + 1) % 24); }
 
-      /* TODO: 接入 I2C1 + SHT30 后使用真实数据；先用示例值 */
-      int16_t  temp_x10 = 256;   /* 25.6°C */
-      uint16_t rh_x10   = 587;   /* 58.7% */
+      /* 从 SHT30 读取真实温湿度，读失败则保留上次值 */
+      SHT30_Readout r;
+      static int16_t  last_temp_x10 = 0;
+      static uint16_t last_rh_x10   = 0;
+      if (sht30_read(&g_sht30, &r) == HAL_OK)
+      {
+        last_temp_x10 = r.temp_x10;
+        last_rh_x10   = r.rh_x10;
+      }
 
-      render_screen(hh, mm, temp_x10, rh_x10);
+      render_screen(hh, mm, last_temp_x10, last_rh_x10);
     }
   }
   /* USER CODE END 3 */
@@ -237,6 +249,34 @@ static void MX_SPI1_Init(void)
 
   /* USER CODE END SPI1_Init 2 */
 
+}
+
+/**
+  * @brief I2C1 Initialization Function (PB6=SCL, PB7=SDA, 100kHz)
+  */
+static void MX_I2C1_Init(void)
+{
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.Timing = 0x10909CEC;          /* 100kHz @ PCLK1=80MHz */
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /**
