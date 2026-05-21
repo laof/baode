@@ -60,6 +60,8 @@ static volatile uint8_t  g_hh = 0, g_mm = 0, g_ss = 0;
 static uint8_t  g_uart_rx_byte;
 static char     g_line_buf[32];
 static uint8_t  g_line_len = 0;
+static volatile uint32_t g_rx_total = 0;   /* DEBUG: 累计收到的字节数 */
+static volatile uint8_t  g_rx_last  = 0;   /* DEBUG: 最近一次收到的字节 */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -379,6 +381,12 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
            temp_x10 < 0 ? "-" : "", temp_abs / 10, temp_abs % 10);
   snprintf(hum_str,  sizeof(hum_str),  "H:%d.%d%%", rh_x10 / 10, rh_x10 % 10);
 
+  /* DEBUG：把收到的字节总数和最近一字节显示出来。
+   * 字体只支持 0-9 : . C % T H - 空格，所以用 "总数-最近字节ASCII" */
+  char dbg_str[24];
+  snprintf(dbg_str, sizeof(dbg_str), "%lu-%u",
+           (unsigned long)g_rx_total, (unsigned int)g_rx_last);
+
   st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
   /* 日期：scale=3 → 10*18=180px宽、21px高 */
   st7305_draw_string(&g_lcd, 10,  20, date,     ST7305_COLOR_BLACK, 3);
@@ -387,6 +395,8 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   /* 温湿度：scale=3 */
   st7305_draw_string(&g_lcd, 10, 180, temp_str, ST7305_COLOR_BLACK, 3);
   st7305_draw_string(&g_lcd, 10, 230, hum_str,  ST7305_COLOR_BLACK, 3);
+  /* DEBUG 行：scale=2，放底部 */
+  st7305_draw_string(&g_lcd, 10, 280, dbg_str,  ST7305_COLOR_BLACK, 2);
   st7305_refresh(&g_lcd);
 }
 
@@ -401,6 +411,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   }
 
   uint8_t b = g_uart_rx_byte;
+  g_rx_total++;
+  g_rx_last = b;
 
   if (b == '\r')
   {
