@@ -44,7 +44,7 @@ ESP32 联 Wi-Fi → NTP 同步 → 每 10s 通过 UART 发送 `T:YYYY-MM-DD HH:M
 > - 如果只想给一块板供电、由它带另一块：再加一根 **3V3 ↔ 3V3**（例如 STM32 调试器供电，把 STM32 的 3V3 接到 ESP32 的 3V3 引脚）。
 > - **严禁** 5V ↔ 3V3 互连，会烧板。GND 任何情况下都必须连通，否则 UART 没有参考电平。
 
-波特率 **115200 8N1**，帧格式 `T:YYYY-MM-DD HH:MM:SS\n`（22 字节，例如 `T:2026-12-06 14:45:01\n`）。ESP32 每 10 秒发一帧，STM32 端按本地秒数自走，屏幕每秒刷新一次。
+波特率 **115200 8N1**，帧格式 `T:YYYY-MM-DD HH:MM:SS\n`（21 字节正文 + LF，例如 `T:2026-12-06 14:45:01\n`）。ESP32 每 10 秒发一帧，STM32 端按本地秒数自走，屏幕每秒刷新一次。
 
 > ESP32-C3 默认 `Serial` 走 USB-CDC，调试日志看 USB；与 STM32 通讯走 `Serial1` (GPIO4/5)，互不冲突。
 > Wi-Fi SSID/密码放在 `esp32-c3-mini/secrets.h`（已被 `.gitignore` 排除），首次使用复制 `secrets.h.example` 为 `secrets.h` 并填入。

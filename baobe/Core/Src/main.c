@@ -422,8 +422,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   {
     g_line_buf[g_line_len] = '\0';
 
-    /* 期望: T:YYYY-MM-DD HH:MM:SS  (22 字符) */
-    if (g_line_len == 22
+    /* 期望: T:YYYY-MM-DD HH:MM:SS  (21 字符) */
+    if (g_line_len == 21
         && g_line_buf[0]  == 'T' && g_line_buf[1]  == ':'
         && g_line_buf[6]  == '-' && g_line_buf[9]  == '-'
         && g_line_buf[12] == ' '
