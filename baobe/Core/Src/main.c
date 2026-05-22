@@ -485,31 +485,44 @@ static void draw_icon_weather(uint16_t x, uint16_t y, uint8_t s, int8_t code)
   }
 }
 
-/* 信号基站图标 28×22：主杆 + 底座 + 3 道递增信号条；has_signal=0 时右侧画一个叉 */
+/* 经典 WiFi 图标 28×20：底部圆点 + 3 道递增同心弧。未联网时整块不画。 */
 static void draw_icon_signal(uint16_t x, uint16_t y, uint8_t has_signal)
 {
-  /* 塔身 + 天线 */
-  fill_rect(x + 7, y,        2, 22, ST7305_COLOR_BLACK);
-  /* 底座 */
-  fill_rect(x + 4, y + 19,   8,  3, ST7305_COLOR_BLACK);
-  /* 塔顶横档 */
-  fill_rect(x + 5, y +  2,   6,  2, ST7305_COLOR_BLACK);
+  if (!has_signal) return;
 
-  if (has_signal)
+  const int cx = 13;   /* 弧心 x（图标本地坐标） */
+  const int cy = 19;   /* 弧心 y（底部圆点中心） */
+
+  /* 3 道圆弧的外/内半径平方，厚度 2px */
+  const int r_out2[3] = { 14*14, 10*10, 6*6 };
+  const int r_in2 [3] = { 12*12,  8*8, 4*4 };
+
+  for (int py = 0; py <= cy; py++)
   {
-    fill_rect(x + 14, y + 16, 3,  6, ST7305_COLOR_BLACK);
-    fill_rect(x + 19, y + 12, 3, 10, ST7305_COLOR_BLACK);
-    fill_rect(x + 24, y +  7, 3, 15, ST7305_COLOR_BLACK);
-  }
-  else
-  {
-    /* 右侧画个叉：两条对角线，每条用 14 个 2x2 像素点 */
-    for (uint8_t i = 0; i < 14; i++)
+    int dy = cy - py;            /* 向上为正 */
+    int dy2 = dy * dy;
+    for (int px = 0; px < 28; px++)
     {
-      fill_rect((uint16_t)(x + 13 + i), (uint16_t)(y +  4 + i), 2, 2, ST7305_COLOR_BLACK);
-      fill_rect((uint16_t)(x + 13 + i), (uint16_t)(y + 17 - i), 2, 2, ST7305_COLOR_BLACK);
+      int dx = px - cx;
+      int d2 = dx * dx + dy2;
+      /* 限制弧线张开角度约 140°：dy >= |dx| * tan(20°) ≈ |dx|*0.36 */
+      /* 用整数：100*dy >= 36*|dx|，即 25*dy >= 9*|dx| */
+      int adx = dx < 0 ? -dx : dx;
+      if (25 * dy < 9 * adx) continue;
+
+      for (int i = 0; i < 3; i++)
+      {
+        if (d2 <= r_out2[i] && d2 >= r_in2[i])
+        {
+          st7305_draw_pixel(&g_lcd, (uint16_t)(x + px), (uint16_t)(y + py), ST7305_COLOR_BLACK);
+          break;
+        }
+      }
     }
   }
+
+  /* 底部实心圆点 */
+  fill_rect((uint16_t)(x + cx - 1), (uint16_t)(y + cy - 1), 3, 3, ST7305_COLOR_BLACK);
 }
 
 /* \u672c\u5730\u79d2\u8868 +1\uff0c\u52a0\u5165\u5fc5\u8981\u7684\u8fdb\u4f4d\uff08\u65e5\u671f\u4ec5\u5728\u4e0b\u4e00\u6b21\u540c\u6b65\u5e27\u91cd\u65b0\u8d4b\u503c\uff09*/
@@ -565,14 +578,16 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   /* 露点 < 8.0°C 认为偏干，需要加湿 */
   uint8_t dry = (uint8_t)(dew_valid && (dew_x10 < 80));
 
-  snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", hh, mm, ss);
+  (void)ss;
+  snprintf(time_str, sizeof(time_str), "%02d:%02d", hh, mm);
   snprintf(temp_str, sizeof(temp_str), "T:%s%d.%dC",
            temp_x10 < 0 ? "-" : "", temp_abs / 10, temp_abs % 10);
   snprintf(hum_str,  sizeof(hum_str),  "H:%d.%d%%", rh_x10 / 10, rh_x10 % 10);
   snprintf(wtemp_str, sizeof(wtemp_str), "%dC", (int)w_temp_c);
   snprintf(dew_str,  sizeof(dew_str),  "%s%d.%dC",
            dew_x10 < 0 ? "-" : "", dew_abs / 10, dew_abs % 10);
-  snprintf(dt_str, sizeof(dt_str), "%s %s", date, time_str);
+  /* 底部去掉年份，避免与放大后的其他字号失调（保持整体字号梯度均衡） */
+  snprintf(dt_str, sizeof(dt_str), "%s %s", date + 5, time_str);
 
   st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
 
@@ -583,34 +598,33 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
     draw_icon_signal(266, 4, wifi_up);
   }
 
-  /* === 天气独占一行，4x 大图标一眼看到 === */
-  if (w_code >= 0)
-  {
-    draw_icon_weather(10, 32, 4, w_code);     /* 4x → 112×88 */
-    st7305_draw_string(&g_lcd, 140, 52, wtemp_str, ST7305_COLOR_BLACK, 8);
-  }
-
-  /* === 主要内容 === */
-  /* 室内温湿度：size=3 保持 */
-  st7305_draw_string(&g_lcd, 10, 190, temp_str, ST7305_COLOR_BLACK, 3);
-  st7305_draw_string(&g_lcd, 10, 240, hum_str,  ST7305_COLOR_BLACK, 3);
-
-  /* 露点行：水满图标 + 数字，偏干时右侧加粗 "!" */
+  /* === 露点行（最看重，放第二位）：3x 大水滴 + size=5 大字，偏干时 "!" === */
   if (dew_valid)
   {
-    draw_icon_drop(10, 124, 2);   /* 2x → 28×32 */
-    st7305_draw_string(&g_lcd, 46, 130, dew_str, ST7305_COLOR_BLACK, 3);
+    draw_icon_drop(10, 32, 3);    /* 3x → 42×48 */
+    st7305_draw_string(&g_lcd, 66, 36, dew_str, ST7305_COLOR_BLACK, 5);
     if (dry)
     {
-      uint16_t dew_w = (uint16_t)(strlen(dew_str) * 6 * 3);
-      uint16_t bx = (uint16_t)(46 + dew_w + 8);
-      fill_rect(bx, 130,      4, 16, ST7305_COLOR_BLACK);
-      fill_rect(bx, 130 + 20, 4, 4,  ST7305_COLOR_BLACK);
+      uint16_t dew_w = (uint16_t)(strlen(dew_str) * 6 * 5);
+      uint16_t bx = (uint16_t)(66 + dew_w + 10);
+      fill_rect(bx, 36,      5, 28, ST7305_COLOR_BLACK);
+      fill_rect(bx, 36 + 34, 5, 5,  ST7305_COLOR_BLACK);
     }
   }
 
-  /* 底部：年月日 时分秒 小字 */
-  st7305_draw_string(&g_lcd, 4, 380, dt_str, ST7305_COLOR_BLACK, 2);
+  /* === 天气行（2x 图标 + size=4 温度，与其他行同字号 === */
+  if (w_code >= 0)
+  {
+    draw_icon_weather(10, 110, 2, w_code);    /* 2x → 56×44 */
+    st7305_draw_string(&g_lcd, 80, 116, wtemp_str, ST7305_COLOR_BLACK, 4);
+  }
+
+  /* === 室内温湿度：size=4，与天气温度同字号 === */
+  st7305_draw_string(&g_lcd, 10, 200, temp_str, ST7305_COLOR_BLACK, 4);
+  st7305_draw_string(&g_lcd, 10, 250, hum_str,  ST7305_COLOR_BLACK, 4);
+
+  /* 底部：MM-DD HH:MM:SS（去年份），size=3 比原来更接近上方字号 */
+  st7305_draw_string(&g_lcd, 10, 370, dt_str, ST7305_COLOR_BLACK, 3);
 
   st7305_refresh(&g_lcd);
 }
