@@ -1,3 +1,22 @@
 # Wi-Fi / API 凭据，不上传
 esp32-c3-mini/secrets.h
 **/secrets.h
+
+# ===== Keil MDK-ARM 生成物 =====
+# 构建输出目录（.axf/.o/.d/.htm/.lnp/.sct/.dep 等）
+baobe/MDK-ARM/baobe/
+# 用户专属的 µVision GUI 布局
+*.uvguix.*
+# 汇编列表（每次构建生成）
+baobe/MDK-ARM/*.lst
+# µVision 备份/锁文件
+*.uvprojx.bak
+*.uvoptx.bak
+*.uvgui.*.bak
+*.~*
+JLinkLog.txt
+*.scvd
+
+# RTE 自动生成的备份
+**/RTE/**/*.base@*
+
