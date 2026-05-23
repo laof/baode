@@ -5,6 +5,8 @@
 "baobe\stm32l4xx_hal_msp.o"
 "baobe\st7305.o"
 "baobe\sht30.o"
+"baobe\stm32l4xx_hal_adc.o"
+"baobe\stm32l4xx_hal_adc_ex.o"
 "baobe\stm32l4xx_hal_spi.o"
 "baobe\stm32l4xx_hal_spi_ex.o"
 "baobe\stm32l4xx_hal.o"
