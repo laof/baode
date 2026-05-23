@@ -591,10 +591,10 @@ static void draw_icon_signal(uint16_t x, uint16_t y, uint8_t has_signal)
 
   /* 3 道圆弧的外/内半径平方，厚度 2px，弧间留 1px 间隙 */
   const int r_out2[3] = { 11*11, 8*8, 5*5 };
-  const int r_in2 [3] = {  9*9,  6*6, 3*3 };
+  const int r_in2 [3] = { 10*10, 7*7, 4*4 };
 
-  /* 半圆裁掉两侧，仅保留中间约 120° 的弧段（贴近图片观感）：
-     dy >= |dx| * tan(30°) ≈ |dx| * 0.577 → 整数判定 7*dy >= 4*|dx| */
+  /* 半圆裁掉两侧，仅保留中间约 100° 的弧段（贴近图片观感）：
+     dy >= |dx| * tan(40°) ≈ |dx| * 0.839 → 整数判定 6*dy >= 5*|dx| */
   for (int py = 0; py <= cy; py++)
   {
     int dy  = cy - py;
@@ -603,7 +603,7 @@ static void draw_icon_signal(uint16_t x, uint16_t y, uint8_t has_signal)
     {
       int dx  = px - cx;
       int adx = dx < 0 ? -dx : dx;
-      if (7 * dy < 4 * adx) continue;
+      if (6 * dy < 5 * adx) continue;
       int d2 = dx * dx + dy2;
       for (int i = 0; i < 3; i++)
       {
@@ -813,25 +813,25 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   /* === 顶部左：电池图标（始终显示，与右侧图标共享中线 cy=16） === */
   draw_icon_battery(4, (uint16_t)(16 - ICON_BAT_H / 2), bat_bars);
 
-  /* === 顶部右：ESP + WiFi 图标，两者共享同一垂直中心 (y=16) === */
+  /* === 顶部右：WiFi + ESP 图标，两者共享同一垂直中心 (y=16) === */
   if (esp_online)
   {
     /* 右对齐到屏宽 300，留 4px 边距；图标间留 4px 间隙 */
-    const uint16_t wifi_x = (uint16_t)(300 - 4 - ICON_WIFI_W);                  /* 274 */
-    const uint16_t esp_x  = (uint16_t)(wifi_x - 4 - ICON_ESP_W);                /* 244 */
+    const uint16_t esp_x  = (uint16_t)(300 - 4 - ICON_ESP_W);                   /* 270 */
+    const uint16_t wifi_x = (uint16_t)(esp_x - 4 - ICON_WIFI_W);                /* 244 */
     const uint16_t cy_top = 16;                                                 /* 顶部行共同中线 */
-    draw_icon_esp(esp_x,  (uint16_t)(cy_top - ICON_ESP_H  / 2));               /* y = 5  */
-    draw_icon_signal(wifi_x, (uint16_t)(cy_top - ICON_WIFI_H / 2), wifi_up);   /* y = 8  */
+    draw_icon_signal(wifi_x, (uint16_t)(cy_top - ICON_WIFI_H / 2), wifi_up);
+    draw_icon_esp(esp_x,     (uint16_t)(cy_top - ICON_ESP_H  / 2));
   }
 
-  /* === 露点行：3x 水滴(42×48) + size=5 大字(高=35)，共享中线 y = 32+24 = 56 === */
+  /* === 露点行：3x 水滴(42×48) + size=5 大字(高=35)，共享中线 y = 62+24 = 86 === */
   if (dew_valid)
   {
-    const uint16_t drop_y    = 32;
+    const uint16_t drop_y    = 62;
     const uint16_t drop_h    = 48;                       /* 16 * 3 */
-    const uint16_t cy_dew    = (uint16_t)(drop_y + drop_h / 2);  /* 56 */
+    const uint16_t cy_dew    = (uint16_t)(drop_y + drop_h / 2);  /* 86 */
     const uint16_t dew_txt_h = (uint16_t)(7 * 5);        /* 35 */
-    const uint16_t dew_txt_y = (uint16_t)(cy_dew - dew_txt_h / 2); /* 39 */
+    const uint16_t dew_txt_y = (uint16_t)(cy_dew - dew_txt_h / 2); /* 69 */
     draw_icon_drop(10, drop_y, 3);
     st7305_draw_string(&g_lcd, 76, dew_txt_y, dew_str, ST7305_COLOR_BLACK, 5);
     if (dry)
@@ -845,22 +845,22 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
     }
   }
 
-  /* === 天气行：2x 图标(56×44) + size=4 温度(高=28)，共享中线 y = 110+22 = 132 === */
+  /* === 天气行：2x 图标(56×44) + size=4 温度(高=28)，共享中线 y = 140+22 = 162 === */
   if (w_code >= 0)
   {
     const uint16_t wx        = 10;
-    const uint16_t wy        = 110;
+    const uint16_t wy        = 140;
     const uint16_t wh        = 44;                       /* 22 * 2 */
-    const uint16_t cy_wx     = (uint16_t)(wy + wh / 2);  /* 132 */
+    const uint16_t cy_wx     = (uint16_t)(wy + wh / 2);  /* 162 */
     const uint16_t wtxt_h    = (uint16_t)(7 * 4);        /* 28 */
-    const uint16_t wtxt_y    = (uint16_t)(cy_wx - wtxt_h / 2);   /* 118 */
+    const uint16_t wtxt_y    = (uint16_t)(cy_wx - wtxt_h / 2);   /* 148 */
     draw_icon_weather(wx, wy, 2, w_code);
     st7305_draw_string(&g_lcd, 90, wtxt_y, wtemp_str, ST7305_COLOR_BLACK, 4);
   }
 
   /* === 室内温湿度：size=4，与天气温度同字号 === */
-  st7305_draw_string(&g_lcd, 10, 200, temp_str, ST7305_COLOR_BLACK, 4);
-  st7305_draw_string(&g_lcd, 10, 250, hum_str,  ST7305_COLOR_BLACK, 4);
+  st7305_draw_string(&g_lcd, 10, 230, temp_str, ST7305_COLOR_BLACK, 4);
+  st7305_draw_string(&g_lcd, 10, 280, hum_str,  ST7305_COLOR_BLACK, 4);
 
   /* 底部左：MM-DD HH:MM（去年份），size=2，与右侧农历同字号 */
   st7305_draw_string(&g_lcd, 10, 373, dt_str, ST7305_COLOR_BLACK, 2);
