@@ -82,12 +82,92 @@ static void MX_USART2_UART_Init(void);
 static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
                           int16_t temp_x10, uint16_t rh_x10,
                           uint8_t esp_online, uint8_t wifi_up,
-                          int8_t w_code, int8_t w_temp_c);
+                          int8_t w_code, int8_t w_temp_c,
+                          uint8_t bat_bars);
 static void tick_one_second(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+/* ===== 电池电量（PA1 -> ADC1_IN6，100k/100k 分压，VREFINT 校准）===== */
+static ADC_HandleTypeDef hadc_bat;
+
+static void bat_init(void)
+{
+  __HAL_RCC_ADC_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+
+  /* PA1 模拟输入 */
+  GPIO_InitTypeDef g = {0};
+  g.Pin  = GPIO_PIN_1;
+  g.Mode = GPIO_MODE_ANALOG;
+  g.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &g);
+
+  hadc_bat.Instance                   = ADC1;
+  hadc_bat.Init.ClockPrescaler        = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc_bat.Init.Resolution            = ADC_RESOLUTION_12B;
+  hadc_bat.Init.DataAlign             = ADC_DATAALIGN_RIGHT;
+  hadc_bat.Init.ScanConvMode          = ADC_SCAN_DISABLE;
+  hadc_bat.Init.EOCSelection          = ADC_EOC_SINGLE_CONV;
+  hadc_bat.Init.LowPowerAutoWait      = DISABLE;
+  hadc_bat.Init.ContinuousConvMode    = DISABLE;
+  hadc_bat.Init.NbrOfConversion       = 1;
+  hadc_bat.Init.DiscontinuousConvMode = DISABLE;
+  hadc_bat.Init.ExternalTrigConv      = ADC_SOFTWARE_START;
+  hadc_bat.Init.ExternalTrigConvEdge  = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc_bat.Init.DMAContinuousRequests = DISABLE;
+  hadc_bat.Init.Overrun               = ADC_OVR_DATA_PRESERVED;
+  hadc_bat.Init.OversamplingMode      = ENABLE;
+  hadc_bat.Init.Oversampling.Ratio                  = ADC_OVERSAMPLING_RATIO_16;
+  hadc_bat.Init.Oversampling.RightBitShift          = ADC_RIGHTBITSHIFT_4;
+  hadc_bat.Init.Oversampling.TriggeredMode          = ADC_TRIGGEREDMODE_SINGLE_TRIGGER;
+  hadc_bat.Init.Oversampling.OversamplingStopReset  = ADC_REGOVERSAMPLING_CONTINUED_MODE;
+  if (HAL_ADC_Init(&hadc_bat) != HAL_OK) { return; }
+  HAL_ADCEx_Calibration_Start(&hadc_bat, ADC_SINGLE_ENDED);
+}
+
+static uint16_t bat_read_ch(uint32_t channel)
+{
+  ADC_ChannelConfTypeDef c = {0};
+  c.Channel      = channel;
+  c.Rank         = ADC_REGULAR_RANK_1;
+  c.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
+  c.SingleDiff   = ADC_SINGLE_ENDED;
+  c.OffsetNumber = ADC_OFFSET_NONE;
+  c.Offset       = 0;
+  if (HAL_ADC_ConfigChannel(&hadc_bat, &c) != HAL_OK) return 0;
+  if (HAL_ADC_Start(&hadc_bat) != HAL_OK) return 0;
+  if (HAL_ADC_PollForConversion(&hadc_bat, 100) != HAL_OK) { HAL_ADC_Stop(&hadc_bat); return 0; }
+  uint16_t v = (uint16_t)HAL_ADC_GetValue(&hadc_bat);
+  HAL_ADC_Stop(&hadc_bat);
+  return v;
+}
+
+/* 返回当前 VBAT 毫伏；用 VREFINT 校准 VDDA，再算分压后的电池电压 */
+static uint32_t bat_read_mv(void)
+{
+  uint16_t vref_raw = bat_read_ch(ADC_CHANNEL_VREFINT);
+  uint16_t pa1_raw  = bat_read_ch(ADC_CHANNEL_6);
+  if (vref_raw == 0) return 0;
+  uint16_t vref_cal = *(uint16_t *)0x1FFF75AAU;          /* STM32L4 VREFINT 校准地址 */
+  uint32_t vdda_mv  = (3000UL * vref_cal) / vref_raw;     /* 校准值在 3.0V 下测得 */
+  /* PA1 经 100k/100k 分压看到 VBAT/2，所以 *2 还原 */
+  uint32_t vbat_mv  = ((uint32_t)pa1_raw * vdda_mv * 2UL) / 4095UL;
+  return vbat_mv;
+}
+
+/* LiPo 单节经验分段：5 = 100..81%, 4 = 80..61%, 3 = 60..41%, 2 = 40..21%, 1 = 20..6%, 0 = 极低 */
+static uint8_t bat_mv_to_bars(uint32_t mv)
+{
+  if (mv >= 4100U) return 5;
+  if (mv >= 3900U) return 4;
+  if (mv >= 3800U) return 3;
+  if (mv >= 3700U) return 2;
+  if (mv >= 3500U) return 1;
+  return 0;
+}
 
 /* USER CODE END 0 */
 
@@ -130,6 +210,8 @@ int main(void)
 
   st7305_init(&g_lcd);
 
+  bat_init();
+
   /* SHT30 I2C 7-bit 地址：ADDR 脚接 GND => 0x44；接 VDD => 0x45 */
   sht30_init(&g_sht30, &hi2c1, 0x44);
 
@@ -141,6 +223,8 @@ int main(void)
   uint32_t last_ping_tick   = 0;
   int16_t  last_temp_x10 = 0;
   uint16_t last_rh_x10   = 0;
+  uint32_t last_bat_tick = 0;
+  uint8_t  last_bat_bars = bat_mv_to_bars(bat_read_mv());
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -169,7 +253,7 @@ int main(void)
       int8_t  w_code   = (g_w_last_seen_ms != 0) ? g_w_code   : (int8_t)-1;
       int8_t  w_temp_c = (g_w_last_seen_ms != 0) ? g_w_temp_c : (int8_t)0;
       render_screen(g_date, g_hh, g_mm, g_ss, last_temp_x10, last_rh_x10,
-                    esp_online, g_wifi_up, w_code, w_temp_c);
+                    esp_online, g_wifi_up, w_code, w_temp_c, last_bat_bars);
     }
 
     /* SHT30 每 5s 读一次即可（传感器本身变化不快）*/
@@ -182,6 +266,13 @@ int main(void)
         last_temp_x10 = r.temp_x10;
         last_rh_x10   = r.rh_x10;
       }
+    }
+
+    /* 电池每 30s 采一次，刷屏用最近一次结果 */
+    if ((now - last_bat_tick) >= 30000U)
+    {
+      last_bat_tick = now;
+      last_bat_bars = bat_mv_to_bars(bat_read_mv());
     }
   }
   /* USER CODE END 3 */
@@ -488,33 +579,32 @@ static void draw_icon_weather(uint16_t x, uint16_t y, uint8_t s, int8_t code)
   }
 }
 
-/* 经典 WiFi 图标 22×16：底部圆点 + 3 道递增同心弧。未联网时整块不画。 */
+/* 经典 WiFi 图标 22×17：底部倒三角 + 3 道完整同心半圆弧。未联网时整块不画。 */
 #define ICON_WIFI_W 22
-#define ICON_WIFI_H 16
+#define ICON_WIFI_H 17
 static void draw_icon_signal(uint16_t x, uint16_t y, uint8_t has_signal)
 {
   if (!has_signal) return;
 
   const int cx = 11;   /* 弧心 x（图标本地坐标） */
-  const int cy = 15;   /* 弧心 y（底部圆点中心） */
+  const int cy = 13;   /* 弧心 y：把下面留 3 行给倒三角 */
 
-  /* 3 道圆弧的外/内半径平方，厚度 2px */
+  /* 3 道圆弧的外/内半径平方，厚度 2px，弧间留 1px 间隙 */
   const int r_out2[3] = { 11*11, 8*8, 5*5 };
   const int r_in2 [3] = {  9*9,  6*6, 3*3 };
 
+  /* 半圆裁掉两侧，仅保留中间约 120° 的弧段（贴近图片观感）：
+     dy >= |dx| * tan(30°) ≈ |dx| * 0.577 → 整数判定 7*dy >= 4*|dx| */
   for (int py = 0; py <= cy; py++)
   {
-    int dy = cy - py;            /* 向上为正 */
+    int dy  = cy - py;
     int dy2 = dy * dy;
-    for (int px = 0; px < 22; px++)
+    for (int px = 0; px < ICON_WIFI_W; px++)
     {
-      int dx = px - cx;
-      int d2 = dx * dx + dy2;
-      /* 限制弧线张开角度约 140°：dy >= |dx| * tan(20°) ≈ |dx|*0.36 */
-      /* 用整数：100*dy >= 36*|dx|，即 25*dy >= 9*|dx| */
+      int dx  = px - cx;
       int adx = dx < 0 ? -dx : dx;
-      if (25 * dy < 9 * adx) continue;
-
+      if (7 * dy < 4 * adx) continue;
+      int d2 = dx * dx + dy2;
       for (int i = 0; i < 3; i++)
       {
         if (d2 <= r_out2[i] && d2 >= r_in2[i])
@@ -526,8 +616,31 @@ static void draw_icon_signal(uint16_t x, uint16_t y, uint8_t has_signal)
     }
   }
 
-  /* 底部实心圆点 */
-  fill_rect((uint16_t)(x + cx - 1), (uint16_t)(y + cy - 1), 3, 3, ST7305_COLOR_BLACK);
+  /* 底部倒三角（指向下方），与最内弧之间留 1 行空隙 */
+  fill_rect((uint16_t)(x + cx - 2), (uint16_t)(y + 14), 5, 1, ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + cx - 1), (uint16_t)(y + 15), 3, 1, ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + cx),     (uint16_t)(y + 16), 1, 1, ST7305_COLOR_BLACK);
+}
+
+
+/* 电池图标 27×14：实心外壳描边 + 右侧正极 + 内部 5 格电量条 */
+#define ICON_BAT_W 27
+#define ICON_BAT_H 14
+static void draw_icon_battery(uint16_t x, uint16_t y, uint8_t bars)
+{
+  /* 主体 24×14，2px 粗描边 */
+  fill_rect(x,      y,       24, 2,  ST7305_COLOR_BLACK);
+  fill_rect(x,      y + 12,  24, 2,  ST7305_COLOR_BLACK);
+  fill_rect(x,      y,       2,  14, ST7305_COLOR_BLACK);
+  fill_rect(x + 22, y,       2,  14, ST7305_COLOR_BLACK);
+  /* 右侧正极 3×6 */
+  fill_rect(x + 24, y + 4,   3,  6,  ST7305_COLOR_BLACK);
+  /* 5 格电量条：每格 3×8，间距 1px（左起 x+3） */
+  if (bars > 5) bars = 5;
+  for (uint8_t i = 0; i < bars; i++)
+  {
+    fill_rect((uint16_t)(x + 3 + i * 4), (uint16_t)(y + 3), 3, 8, ST7305_COLOR_BLACK);
+  }
 }
 
 /* 月亮图标 12×14：实心圆盘减去偏移圆盘形成弯月 */
@@ -651,7 +764,8 @@ static void tick_one_second(void)
 static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
                           int16_t temp_x10, uint16_t rh_x10,
                           uint8_t esp_online, uint8_t wifi_up,
-                          int8_t w_code, int8_t w_temp_c)
+                          int8_t w_code, int8_t w_temp_c,
+                          uint8_t bat_bars)
 {
   char time_str[16];
   char temp_str[16];
@@ -696,7 +810,10 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
 
   st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
 
-  /* === 顶部：ESP + WiFi 图标，两者共享同一垂直中心 (y=16) === */
+  /* === 顶部左：电池图标（始终显示，与右侧图标共享中线 cy=16） === */
+  draw_icon_battery(4, (uint16_t)(16 - ICON_BAT_H / 2), bat_bars);
+
+  /* === 顶部右：ESP + WiFi 图标，两者共享同一垂直中心 (y=16) === */
   if (esp_online)
   {
     /* 右对齐到屏宽 300，留 4px 边距；图标间留 4px 间隙 */
