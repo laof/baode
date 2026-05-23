@@ -380,22 +380,25 @@ static void fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t co
 }
 
 /* ESP \u6a21\u5757\u56fe\u6807\uff1a\u5929\u7ebf + \u82af\u7247\u8eab\u4f53 + \u5f15\u811a\uff0c\u5360 22\u00d720 */
+#define ICON_ESP_W 26
+#define ICON_ESP_H 22
 static void draw_icon_esp(uint16_t x, uint16_t y)
 {
-  /* \u5929\u7ebf */
-  fill_rect(x + 10, y,     2, 4, ST7305_COLOR_BLACK);
-  /* \u82af\u7247\u4e3b\u4f53\u63cf\u8fb9 16\u00d712 */
-  fill_rect(x + 3,  y + 4, 16, 2, ST7305_COLOR_BLACK);
-  fill_rect(x + 3,  y + 14, 16, 2, ST7305_COLOR_BLACK);
-  fill_rect(x + 3,  y + 4, 2,  12, ST7305_COLOR_BLACK);
-  fill_rect(x + 17, y + 4, 2,  12, ST7305_COLOR_BLACK);
-  /* \u4e2d\u95f4\u5c0f\u65b9\u5757\u4ee3\u8868\u82af\u7247\u6807\u8bb0 */
-  fill_rect(x + 9,  y + 8, 4,  4,  ST7305_COLOR_BLACK);
-  /* \u5de6\u53f3\u5404 3 \u6761\u5f15\u811a */
-  for (uint8_t i = 0; i < 3; i++)
+  /* antenna: vertical bar + top horizontal bar */
+  fill_rect(x + 12, y,     2, 6, ST7305_COLOR_BLACK);
+  fill_rect(x + 9,  y,     8, 2, ST7305_COLOR_BLACK);
+  /* chip body outline 22x16, 2px stroke */
+  fill_rect(x + 2,  y + 6,  22, 2,  ST7305_COLOR_BLACK);
+  fill_rect(x + 2,  y + 20, 22, 2,  ST7305_COLOR_BLACK);
+  fill_rect(x + 2,  y + 6,  2,  16, ST7305_COLOR_BLACK);
+  fill_rect(x + 22, y + 6,  2,  16, ST7305_COLOR_BLACK);
+  /* solid center block as chip marker */
+  fill_rect(x + 10, y + 11, 6,  6,  ST7305_COLOR_BLACK);
+  /* 4 pins on each side (2px thick, 4px pitch) */
+  for (uint8_t i = 0; i < 4; i++)
   {
-    fill_rect(x,      y + 6 + i * 3, 3, 1, ST7305_COLOR_BLACK);
-    fill_rect(x + 19, y + 6 + i * 3, 3, 1, ST7305_COLOR_BLACK);
+    fill_rect(x,      y + 8 + i * 4, 2, 2, ST7305_COLOR_BLACK);
+    fill_rect(x + 24, y + 8 + i * 4, 2, 2, ST7305_COLOR_BLACK);
   }
 }
 
@@ -485,23 +488,25 @@ static void draw_icon_weather(uint16_t x, uint16_t y, uint8_t s, int8_t code)
   }
 }
 
-/* 经典 WiFi 图标 28×20：底部圆点 + 3 道递增同心弧。未联网时整块不画。 */
+/* 经典 WiFi 图标 22×16：底部圆点 + 3 道递增同心弧。未联网时整块不画。 */
+#define ICON_WIFI_W 22
+#define ICON_WIFI_H 16
 static void draw_icon_signal(uint16_t x, uint16_t y, uint8_t has_signal)
 {
   if (!has_signal) return;
 
-  const int cx = 13;   /* 弧心 x（图标本地坐标） */
-  const int cy = 19;   /* 弧心 y（底部圆点中心） */
+  const int cx = 11;   /* 弧心 x（图标本地坐标） */
+  const int cy = 15;   /* 弧心 y（底部圆点中心） */
 
   /* 3 道圆弧的外/内半径平方，厚度 2px */
-  const int r_out2[3] = { 14*14, 10*10, 6*6 };
-  const int r_in2 [3] = { 12*12,  8*8, 4*4 };
+  const int r_out2[3] = { 11*11, 8*8, 5*5 };
+  const int r_in2 [3] = {  9*9,  6*6, 3*3 };
 
   for (int py = 0; py <= cy; py++)
   {
     int dy = cy - py;            /* 向上为正 */
     int dy2 = dy * dy;
-    for (int px = 0; px < 28; px++)
+    for (int px = 0; px < 22; px++)
     {
       int dx = px - cx;
       int d2 = dx * dx + dy2;
@@ -524,6 +529,106 @@ static void draw_icon_signal(uint16_t x, uint16_t y, uint8_t has_signal)
   /* 底部实心圆点 */
   fill_rect((uint16_t)(x + cx - 1), (uint16_t)(y + cy - 1), 3, 3, ST7305_COLOR_BLACK);
 }
+
+/* 月亮图标 12×14：实心圆盘减去偏移圆盘形成弯月 */
+#define ICON_MOON_W 12
+#define ICON_MOON_H 14
+static void draw_icon_moon(uint16_t x, uint16_t y)
+{
+  for (int py = 0; py < ICON_MOON_H; py++)
+  {
+    for (int px = 0; px < ICON_MOON_W; px++)
+    {
+      int dx1 = px - 5, dy1 = py - 7;
+      int dx2 = px - 9, dy2 = py - 6;
+      if (dx1 * dx1 + dy1 * dy1 <= 49 && dx2 * dx2 + dy2 * dy2 > 36)
+      {
+        st7305_draw_pixel(&g_lcd, (uint16_t)(x + px), (uint16_t)(y + py), ST7305_COLOR_BLACK);
+      }
+    }
+  }
+}
+
+/* ===== 农历转换（1900-2049）=====
+ * 每年一个 uint32:
+ *   bits 0-3  : 闰月月份（0 = 无闰）
+ *   bits 4-15 : 12 个常月日数，bit15=正月，1=30天，0=29天
+ *   bit 16    : 闰月日数，1=30天，0=29天
+ */
+static const uint32_t LUNAR_INFO[] = {
+  0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2, /*1900-1909*/
+  0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977, /*1910-1919*/
+  0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970, /*1920-1929*/
+  0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950, /*1930-1939*/
+  0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557, /*1940-1949*/
+  0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0, /*1950-1959*/
+  0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0, /*1960-1969*/
+  0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6, /*1970-1979*/
+  0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570, /*1980-1989*/
+  0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x055c0,0x0ab60,0x096d5,0x092e0, /*1990-1999*/
+  0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5, /*2000-2009*/
+  0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930, /*2010-2019*/
+  0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530, /*2020-2029*/
+  0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45, /*2030-2039*/
+  0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0, /*2040-2049*/
+};
+#define LUNAR_BASE_YEAR 1900
+#define LUNAR_LAST_YEAR (LUNAR_BASE_YEAR + (int)(sizeof(LUNAR_INFO)/sizeof(LUNAR_INFO[0])) - 1)
+
+static int lunar_leap_month(int y) { return (int)(LUNAR_INFO[y - LUNAR_BASE_YEAR] & 0xF); }
+static int lunar_leap_days (int y) { if (!lunar_leap_month(y)) return 0;
+                                     return (LUNAR_INFO[y - LUNAR_BASE_YEAR] & 0x10000) ? 30 : 29; }
+static int lunar_month_days(int y, int m) {
+  return (LUNAR_INFO[y - LUNAR_BASE_YEAR] & ((uint32_t)0x10000 >> m)) ? 30 : 29;
+}
+static int lunar_year_days(int y) {
+  int sum = 348;  /* 12 * 29 */
+  uint32_t info = LUNAR_INFO[y - LUNAR_BASE_YEAR];
+  for (uint32_t i = 0x8000; i > 0x8; i >>= 1) if (info & i) sum++;
+  return sum + lunar_leap_days(y);
+}
+
+/* 公历 ymd -> Julian Day Number（Gregorian） */
+static int ymd_to_jdn(int y, int m, int d)
+{
+  int a  = (14 - m) / 12;
+  int yy = y + 4800 - a;
+  int mm = m + 12 * a - 3;
+  return d + (153 * mm + 2) / 5 + 365 * yy + yy / 4 - yy / 100 + yy / 400 - 32045;
+}
+
+/* 公历 -> 农历，out_leap=1 表示当前月是闰月。范围外返回 0 */
+static int gregorian_to_lunar(int gy, int gm, int gd,
+                              int *out_y, int *out_m, int *out_d, int *out_leap)
+{
+  int offset = ymd_to_jdn(gy, gm, gd) - ymd_to_jdn(LUNAR_BASE_YEAR, 1, 31);
+  if (offset < 0) return 0;
+  int year = LUNAR_BASE_YEAR, ydays;
+  while (year <= LUNAR_LAST_YEAR && offset >= (ydays = lunar_year_days(year)))
+  {
+    offset -= ydays;
+    year++;
+  }
+  if (year > LUNAR_LAST_YEAR) return 0;
+  int leap = lunar_leap_month(year);
+  int m = 1, is_leap = 0;
+  while (m <= 12)
+  {
+    int md = lunar_month_days(year, m);
+    if (offset < md) { is_leap = 0; break; }
+    offset -= md;
+    if (m == leap)
+    {
+      int lmd = lunar_leap_days(year);
+      if (offset < lmd) { is_leap = 1; break; }
+      offset -= lmd;
+    }
+    m++;
+  }
+  *out_y = year; *out_m = m; *out_d = offset + 1; *out_leap = is_leap;
+  return 1;
+}
+
 
 /* \u672c\u5730\u79d2\u8868 +1\uff0c\u52a0\u5165\u5fc5\u8981\u7684\u8fdb\u4f4d\uff08\u65e5\u671f\u4ec5\u5728\u4e0b\u4e00\u6b21\u540c\u6b65\u5e27\u91cd\u65b0\u8d4b\u503c\uff09*/
 static void tick_one_second(void)
@@ -591,40 +696,83 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
 
   st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
 
-  /* === 顶部：只放 ESP + 信号塔 === */
+  /* === 顶部：ESP + WiFi 图标，两者共享同一垂直中心 (y=16) === */
   if (esp_online)
   {
-    draw_icon_esp(236, 4);
-    draw_icon_signal(266, 4, wifi_up);
+    /* 右对齐到屏宽 300，留 4px 边距；图标间留 4px 间隙 */
+    const uint16_t wifi_x = (uint16_t)(300 - 4 - ICON_WIFI_W);                  /* 274 */
+    const uint16_t esp_x  = (uint16_t)(wifi_x - 4 - ICON_ESP_W);                /* 244 */
+    const uint16_t cy_top = 16;                                                 /* 顶部行共同中线 */
+    draw_icon_esp(esp_x,  (uint16_t)(cy_top - ICON_ESP_H  / 2));               /* y = 5  */
+    draw_icon_signal(wifi_x, (uint16_t)(cy_top - ICON_WIFI_H / 2), wifi_up);   /* y = 8  */
   }
 
-  /* === 露点行（最看重，放第二位）：3x 大水滴 + size=5 大字，偏干时 "!" === */
+  /* === 露点行：3x 水滴(42×48) + size=5 大字(高=35)，共享中线 y = 32+24 = 56 === */
   if (dew_valid)
   {
-    draw_icon_drop(10, 32, 3);    /* 3x → 42×48 */
-    st7305_draw_string(&g_lcd, 66, 36, dew_str, ST7305_COLOR_BLACK, 5);
+    const uint16_t drop_y    = 32;
+    const uint16_t drop_h    = 48;                       /* 16 * 3 */
+    const uint16_t cy_dew    = (uint16_t)(drop_y + drop_h / 2);  /* 56 */
+    const uint16_t dew_txt_h = (uint16_t)(7 * 5);        /* 35 */
+    const uint16_t dew_txt_y = (uint16_t)(cy_dew - dew_txt_h / 2); /* 39 */
+    draw_icon_drop(10, drop_y, 3);
+    st7305_draw_string(&g_lcd, 76, dew_txt_y, dew_str, ST7305_COLOR_BLACK, 5);
     if (dry)
     {
       uint16_t dew_w = (uint16_t)(strlen(dew_str) * 6 * 5);
-      uint16_t bx = (uint16_t)(66 + dew_w + 10);
-      fill_rect(bx, 36,      5, 28, ST7305_COLOR_BLACK);
-      fill_rect(bx, 36 + 34, 5, 5,  ST7305_COLOR_BLACK);
+      uint16_t bx = (uint16_t)(76 + dew_w + 14);
+      /* "!" 高度 = 28 + 6 间隙 + 5 点 = 39，居中到 cy_dew */
+      uint16_t by = (uint16_t)(cy_dew - 19);
+      fill_rect(bx, by,           5, 28, ST7305_COLOR_BLACK);
+      fill_rect(bx, (uint16_t)(by + 34), 5, 5,  ST7305_COLOR_BLACK);
     }
   }
 
-  /* === 天气行（2x 图标 + size=4 温度，与其他行同字号 === */
+  /* === 天气行：2x 图标(56×44) + size=4 温度(高=28)，共享中线 y = 110+22 = 132 === */
   if (w_code >= 0)
   {
-    draw_icon_weather(10, 110, 2, w_code);    /* 2x → 56×44 */
-    st7305_draw_string(&g_lcd, 80, 116, wtemp_str, ST7305_COLOR_BLACK, 4);
+    const uint16_t wx        = 10;
+    const uint16_t wy        = 110;
+    const uint16_t wh        = 44;                       /* 22 * 2 */
+    const uint16_t cy_wx     = (uint16_t)(wy + wh / 2);  /* 132 */
+    const uint16_t wtxt_h    = (uint16_t)(7 * 4);        /* 28 */
+    const uint16_t wtxt_y    = (uint16_t)(cy_wx - wtxt_h / 2);   /* 118 */
+    draw_icon_weather(wx, wy, 2, w_code);
+    st7305_draw_string(&g_lcd, 90, wtxt_y, wtemp_str, ST7305_COLOR_BLACK, 4);
   }
 
   /* === 室内温湿度：size=4，与天气温度同字号 === */
   st7305_draw_string(&g_lcd, 10, 200, temp_str, ST7305_COLOR_BLACK, 4);
   st7305_draw_string(&g_lcd, 10, 250, hum_str,  ST7305_COLOR_BLACK, 4);
 
-  /* 底部：MM-DD HH:MM:SS（去年份），size=3 比原来更接近上方字号 */
-  st7305_draw_string(&g_lcd, 10, 370, dt_str, ST7305_COLOR_BLACK, 3);
+  /* 底部左：MM-DD HH:MM（去年份），size=2，与右侧农历同字号 */
+  st7305_draw_string(&g_lcd, 10, 373, dt_str, ST7305_COLOR_BLACK, 2);
+
+  /* 底部右：月亮图标 + 农历 MM-DD（size=2），与公历共享中线 y=380 */
+  {
+    int gy = 0, gmo = 0, gda = 0;
+    if (sscanf(date, "%d-%d-%d", &gy, &gmo, &gda) == 3)
+    {
+      int ly, lm, ld, leap;
+      if (gregorian_to_lunar(gy, gmo, gda, &ly, &lm, &ld, &leap))
+      {
+        (void)ly;
+        char lstr[8];
+        snprintf(lstr, sizeof(lstr), "%s%d-%d", leap ? "*" : "", lm, ld);
+        const uint16_t row_cy   = 380;                       /* 与公历日期同中线 */
+        const uint16_t lun_scale = 2;
+        const uint16_t lun_w    = (uint16_t)(strlen(lstr) * 6 * lun_scale);
+        const uint16_t lun_h    = (uint16_t)(7 * lun_scale);  /* 14 */
+        const uint16_t gap      = 6;
+        const uint16_t lun_x    = (uint16_t)(300 - 4 - lun_w);
+        const uint16_t lun_y    = (uint16_t)(row_cy - lun_h / 2);
+        const uint16_t moon_x   = (uint16_t)(lun_x - gap - ICON_MOON_W);
+        const uint16_t moon_y   = (uint16_t)(row_cy - ICON_MOON_H / 2);
+        draw_icon_moon(moon_x, moon_y);
+        st7305_draw_string(&g_lcd, lun_x, lun_y, lstr, ST7305_COLOR_BLACK, lun_scale);
+      }
+    }
+  }
 
   st7305_refresh(&g_lcd);
 }
