@@ -1,12 +1,31 @@
-
 === ESP32-C3 one-shot session ===
 [WiFi] connecting to Mi_BE6500_Pro_02 ...
-[WiFi] FAIL
-S:N
-D
-
-=== ESP32-C3 one-shot session ===
-[WiFi] connecting to Mi_BE6500_Pro_02 ...
-[WiFi] FAIL
-S:N
-D
+[Scan] 1 networks found:
+   0) Mi_BE6500_Pro_02                  RSSI=-97  ch=1  enc=3
+[Scan] target SSID 'Mi_BE6500_Pro_02' VISIBLE
+  [.] status=6  elapsed=499ms
+  [.] status=6  elapsed=999ms
+  [.] status=6  elapsed=1499ms
+  [.] status=6  elapsed=1999ms
+  [.] status=6  elapsed=2499ms
+  [.] status=6  elapsed=2999ms
+  [.] status=6  elapsed=3499ms
+  [.] status=6  elapsed=3999ms
+  [.] status=6  elapsed=4499ms
+  [.] status=6  elapsed=4999ms
+  [.] status=6  elapsed=5499ms
+  [.] status=6  elapsed=5999ms
+  [.] status=6  elapsed=6499ms
+  [.] status=6  elapsed=6999ms
+  [.] status=6  elapsed=7499ms
+  [.] status=6  elapsed=7999ms
+  [.] status=6  elapsed=8499ms
+  [.] status=6  elapsed=8999ms
+  [.] status=6  elapsed=9499ms
+  [.] status=6  elapsed=9999ms
+  [.] status=6  elapsed=10499ms
+  [.] status=6  elapsed=10999ms
+  [.] status=6  elapsed=11499ms
+  [.] status=6  elapsed=11999ms
+  [.] status=6  elapsed=12499ms
+  [.] status=6  elapsed=12999ms
