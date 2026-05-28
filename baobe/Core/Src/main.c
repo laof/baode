@@ -263,8 +263,12 @@ int main(void)
   // 每5秒刷新一次，既能保证时间显示更新，又能定期读传感器和电池电压
   rtc_set_wakeup_seconds(5);
 
-  /* 调试器拔下后强制让 Stop 模式真的停掉内核时钟（插着 SWD 时会被这条覆盖） */
+  /* 让 Stop 模式真正停掉内核时钟（开了之后 SWD 在 Stop 期间会断开，
+     必须用 "Connect under Reset" 才能再连上烧录。
+     如果调试阶段需要随时连，把下面这行注释掉即可，代价是 Stop 多耗 ~1.5mA。 */
+#ifndef DEBUG_KEEP_SWD_IN_STOP
   HAL_DBGMCU_DisableDBGStopMode();
+#endif
 
   int16_t  last_temp_x10 = 0;
   uint16_t last_rh_x10   = 0;
