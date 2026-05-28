@@ -46,15 +46,39 @@ static void sendLine(const char *s) {
 
 static bool connectWiFi() {
   Serial.printf("[WiFi] connecting to %s ...\n", WIFI_SSID);
+
+  /* 先扫描可见的 SSID，方便诊断 */
   WiFi.mode(WIFI_STA);
+  WiFi.disconnect(true);
+  delay(100);
+  int n = WiFi.scanNetworks();
+  Serial.printf("[Scan] %d networks found:\n", n);
+  bool ssid_seen = false;
+  for (int i = 0; i < n; i++) {
+    int rssi = WiFi.RSSI(i);
+    Serial.printf("  %2d) %-32s  RSSI=%d  ch=%d  enc=%d\n",
+                  i, WiFi.SSID(i).c_str(), rssi,
+                  WiFi.channel(i), WiFi.encryptionType(i));
+    if (WiFi.SSID(i) == WIFI_SSID) ssid_seen = true;
+  }
+  Serial.printf("[Scan] target SSID '%s' %s\n",
+                WIFI_SSID, ssid_seen ? "VISIBLE" : "NOT FOUND");
+
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 
   uint32_t t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && (millis() - t0) < WIFI_TIMEOUT_MS) {
-    delay(200);
+  wl_status_t st = WL_DISCONNECTED;
+  while ((st = WiFi.status()) != WL_CONNECTED && (millis() - t0) < WIFI_TIMEOUT_MS) {
+    delay(500);
+    Serial.printf("  [.] status=%d  elapsed=%lums\n", (int)st, millis() - t0);
   }
   bool ok = (WiFi.status() == WL_CONNECTED);
-  Serial.printf("[WiFi] %s\n", ok ? "OK" : "FAIL");
+  if (ok) {
+    Serial.printf("[WiFi] OK  IP=%s  RSSI=%d\n",
+                  WiFi.localIP().toString().c_str(), WiFi.RSSI());
+  } else {
+    Serial.printf("[WiFi] FAIL  last_status=%d\n", (int)WiFi.status());
+  }
   sendLine(ok ? "S:W\n" : "S:N\n");
   return ok;
 }
