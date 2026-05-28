@@ -27,5 +27,7 @@ void st7305_draw_pixel(ST7305_t *lcd, uint16_t x, uint16_t y, uint8_t color);
 void st7305_draw_char(ST7305_t *lcd, uint16_t x, uint16_t y, char ch, uint8_t color, uint8_t scale);
 void st7305_draw_string(ST7305_t *lcd, uint16_t x, uint16_t y, const char *str, uint8_t color, uint8_t scale);
 void st7305_refresh(ST7305_t *lcd);
+void st7305_sleep_in(ST7305_t *lcd);
+void st7305_sleep_out(ST7305_t *lcd);
 
 #endif

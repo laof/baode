@@ -260,3 +260,17 @@ void st7305_refresh(ST7305_t *lcd) {
     HAL_SPI_Transmit(lcd->hspi, s_buffer, ST7305_BUFFER_SIZE, HAL_MAX_DELAY);
     HAL_GPIO_WritePin(lcd->cs_port, lcd->cs_pin, GPIO_PIN_SET);
 }
+
+/* 进入 Sleep In：驱动 IC 待机电流从 ~30µA 降到 ~5µA，画面保留。*/
+void st7305_sleep_in(ST7305_t *lcd) {
+    st7305_write_cmd(lcd, 0x28);  /* Display OFF */
+    st7305_write_cmd(lcd, 0x10);  /* Sleep In   */
+    HAL_Delay(5);
+}
+
+/* 退出 Sleep In：下一次刷屏前调用 */
+void st7305_sleep_out(ST7305_t *lcd) {
+    st7305_write_cmd(lcd, 0x11);  /* Sleep Out  */
+    HAL_Delay(5);
+    st7305_write_cmd(lcd, 0x29);  /* Display ON */
+}

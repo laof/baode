@@ -47,6 +47,7 @@
 SPI_HandleTypeDef hspi1;
 I2C_HandleTypeDef hi2c1;
 UART_HandleTypeDef huart2;
+RTC_HandleTypeDef hrtc;
 
 /* USER CODE BEGIN PV */
 static ST7305_t g_lcd;
@@ -63,13 +64,27 @@ static char     g_line_buf[32];
 static uint8_t  g_line_len = 0;
 
 /* 副控连接/Wi-Fi 状态 */
-static volatile uint32_t g_esp_last_seen_ms = 0;   /* 最后一次收到任意帧的 tick */
+static volatile uint32_t g_esp_last_seen_ms = 0;   /* 最后一次收到任意帧的 uptime 秒（变量名保留兼容） */
 static volatile uint8_t  g_wifi_up = 0;            /* 0=down/unknown, 1=up */
 
 /* 天气：0=晴 1=多云 2=阴/雾 3=雨 4=雪，-1=未知 */
 static volatile int8_t   g_w_code   = -1;
 static volatile int8_t   g_w_temp_c = 0;
 static volatile uint32_t g_w_last_seen_ms = 0;
+
+/* 副控电源管理：每 3 小时唤醒 ESP32 一次，完成校时/天气后切电 */
+#define ESP_CYCLE_S       (3UL * 3600UL)            /* 3 小时一周期 */
+#define ESP_TIMEOUT_S     (90UL)                    /* 单次会话最长 90s */
+#define ESP_RETRY_S       (10UL * 60UL)             /* 失败后 10 分钟重试 */
+static volatile uint8_t  g_esp_power_on    = 0;     /* 当前是否已上电 */
+static volatile uint8_t  g_esp_session_done= 0;     /* 收到 D 帧，可以切电 */
+static uint32_t          g_esp_power_on_s   = 0;    /* 本次上电时的 uptime 秒 */
+static uint32_t          g_esp_last_done_s  = 0;    /* 上一次成功完成时的 uptime 秒，0=尚未完成 */
+static uint8_t           g_esp_first_boot   = 1;    /* 首次启动需要立刻拉 ESP */
+
+/* 上电后的秒计数（由 RTC 唤醒驱动，跨 Stop 依然准确）*/
+static volatile uint32_t g_uptime_s = 0;
+static volatile uint8_t  g_wakeup_pending = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -84,11 +99,30 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
                           uint8_t esp_online, uint8_t wifi_up,
                           int8_t w_code, int8_t w_temp_c,
                           uint8_t bat_bars);
-static void tick_one_second(void);
+static void MX_RTC_Init(void);
+static void rtc_set_wakeup_seconds(uint32_t s);
+static void rtc_read_into_globals(void);
+static void rtc_write_datetime(const char *date, uint8_t hh, uint8_t mm, uint8_t ss);
+static void enable_usart2_stop_wakeup(void);
+static void enter_stop2_and_restore(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+/* ===== 副控 ESP32 电源控制 ===== */
+static void esp_power_set(uint8_t on)
+{
+  HAL_GPIO_WritePin(ESP_EN_GPIO_Port, ESP_EN_Pin, on ? GPIO_PIN_SET : GPIO_PIN_RESET);
+  g_esp_power_on = on;
+  if (on)
+  {
+    g_esp_power_on_s    = g_uptime_s;
+    g_esp_session_done  = 0;
+    g_wifi_up           = 0;
+    g_esp_last_seen_ms  = 0;
+  }
+}
 
 /* ===== 电池电量（PA1 -> ADC1_IN6，100k/100k 分压，VREFINT 校准）===== */
 static ADC_HandleTypeDef hadc_bat;
@@ -130,6 +164,8 @@ static void bat_init(void)
 
 static uint16_t bat_read_ch(uint32_t channel)
 {
+  /* 每次读取前重开时钟（bat_read_mv 完成后会再次关闭）*/
+  __HAL_RCC_ADC_CLK_ENABLE();
   ADC_ChannelConfTypeDef c = {0};
   c.Channel      = channel;
   c.Rank         = ADC_REGULAR_RANK_1;
@@ -155,6 +191,10 @@ static uint32_t bat_read_mv(void)
   uint32_t vdda_mv  = (3000UL * vref_cal) / vref_raw;     /* 校准值在 3.0V 下测得 */
   /* PA1 经 100k/100k 分压看到 VBAT/2，所以 *2 还原 */
   uint32_t vbat_mv  = ((uint32_t)pa1_raw * vdda_mv * 2UL) / 4095UL;
+
+  /* 量完立刻关掉 ADC 内核 + 时钟，避免持续耗 ~150 µA */
+  __HAL_ADC_DISABLE(&hadc_bat);
+  __HAL_RCC_ADC_CLK_DISABLE();
   return vbat_mv;
 }
 
@@ -218,13 +258,24 @@ int main(void)
   /* 启动 USART2 接收（单字节中断，循环重启）*/
   HAL_UART_Receive_IT(&huart2, &g_uart_rx_byte, 1);
 
-  uint32_t last_sec_tick    = HAL_GetTick();
-  uint32_t last_sensor_tick = 0;
-  uint32_t last_ping_tick   = 0;
+  /* RTC + 5s 周期唤醒 + USART2 Stop 唤醒：构成 Stop 2 低功耗的基础 */
+  MX_RTC_Init();
+  enable_usart2_stop_wakeup();
+  // 每5秒刷新一次，既能保证时间显示更新，又能定期读传感器和电池电压
+  rtc_set_wakeup_seconds(5);
+
+  /* 调试器拔下后强制让 Stop 模式真的停掉内核时钟（插着 SWD 时会被这条覆盖） */
+  HAL_DBGMCU_DisableDBGStopMode();
+
   int16_t  last_temp_x10 = 0;
   uint16_t last_rh_x10   = 0;
-  uint32_t last_bat_tick = 0;
   uint8_t  last_bat_bars = bat_mv_to_bars(bat_read_mv());
+  uint32_t last_bat_s    = 0;
+
+  /* 开机立即给副控上电，做第一次校时/天气 */
+  esp_power_set(1);
+  g_esp_power_on_s  = g_uptime_s;
+  g_esp_first_boot  = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -234,32 +285,34 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    uint32_t now = HAL_GetTick();
 
-    /* 每 5s 向副控发一次 ping "P\n"，让副控回 S:W/S:N 报 Wi-Fi 状态 */
-    if ((now - last_ping_tick) >= 5000U)
+    /* 副控电源状态机：每 3 小时上电一次，完成会话或超时后切电 */
+    if (g_esp_power_on)
     {
-      last_ping_tick = now;
-      static const uint8_t ping[2] = { 'P', '\n' };
-      HAL_UART_Transmit(&huart2, (uint8_t *)ping, sizeof(ping), 10);
+      if (g_esp_session_done)
+      {
+        esp_power_set(0);
+        g_esp_last_done_s = g_uptime_s ? g_uptime_s : 1U;
+      }
+      else if ((g_uptime_s - g_esp_power_on_s) >= ESP_TIMEOUT_S)
+      {
+        esp_power_set(0);
+        g_esp_last_done_s = g_uptime_s - (ESP_CYCLE_S - ESP_RETRY_S);
+        if (g_esp_last_done_s == 0) g_esp_last_done_s = 1U;
+      }
+    }
+    else
+    {
+      uint32_t since = g_uptime_s - g_esp_last_done_s;
+      if (g_esp_last_done_s != 0 && since >= ESP_CYCLE_S)
+      {
+        esp_power_set(1);
+        g_esp_power_on_s = g_uptime_s;
+      }
     }
 
-    /* 1Hz：推进本地秒表 + 刷屏 */
-    if ((now - last_sec_tick) >= 1000U)
+    /* 读 SHT30（每次唤醒，5s 一次） */
     {
-      last_sec_tick += 1000U;
-      tick_one_second();
-      uint8_t esp_online = ((now - g_esp_last_seen_ms) < 12000U) && (g_esp_last_seen_ms != 0);
-      int8_t  w_code   = (g_w_last_seen_ms != 0) ? g_w_code   : (int8_t)-1;
-      int8_t  w_temp_c = (g_w_last_seen_ms != 0) ? g_w_temp_c : (int8_t)0;
-      render_screen(g_date, g_hh, g_mm, g_ss, last_temp_x10, last_rh_x10,
-                    esp_online, g_wifi_up, w_code, w_temp_c, last_bat_bars);
-    }
-
-    /* SHT30 每 5s 读一次即可（传感器本身变化不快）*/
-    if ((now - last_sensor_tick) >= 5000U)
-    {
-      last_sensor_tick = now;
       SHT30_Readout r;
       if (sht30_read(&g_sht30, &r) == HAL_OK)
       {
@@ -268,12 +321,32 @@ int main(void)
       }
     }
 
-    /* 电池每 30s 采一次，刷屏用最近一次结果 */
-    if ((now - last_bat_tick) >= 30000U)
+    /* 电池每 30s 采一次 */
+    if ((g_uptime_s - last_bat_s) >= 30U)
     {
-      last_bat_tick = now;
+      last_bat_s    = g_uptime_s;
       last_bat_bars = bat_mv_to_bars(bat_read_mv());
     }
+
+    /* 从 RTC 读最新时间到 g_hh/g_mm/g_ss/g_date，然后刷屏 */
+    rtc_read_into_globals();
+    {
+      uint8_t esp_online = (g_esp_last_seen_ms != 0) &&
+                           ((g_uptime_s - g_esp_last_seen_ms) < 60U);
+      int8_t  w_code     = (g_w_last_seen_ms != 0) ? g_w_code   : (int8_t)-1;
+      int8_t  w_temp_c   = (g_w_last_seen_ms != 0) ? g_w_temp_c : (int8_t)0;
+      st7305_sleep_out(&g_lcd);
+      render_screen(g_date, g_hh, g_mm, g_ss, last_temp_x10, last_rh_x10,
+                    esp_online, g_wifi_up, w_code, w_temp_c, last_bat_bars);
+      st7305_sleep_in(&g_lcd);
+    }
+
+    /* 重新挂上 UART 接收（Stop 唤醒后中断链路可能需要重新 arm） */
+    HAL_UART_Receive_IT(&huart2, &g_uart_rx_byte, 1);
+
+    /* 进入 Stop 2 等待下次 RTC 唤醒或 UART 起始位唤醒 */
+    g_wakeup_pending = 0;
+    enter_stop2_and_restore();
   }
   /* USER CODE END 3 */
 }
@@ -286,52 +359,64 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef p = {0};
 
-  /** Configure the main internal regulator output voltage
-  */
-  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure LSE Drive Capability
-  */
+  /* 低功耗策略：SYSCLK = HSI 16MHz，调压器 Range 2，Flash 2WS
+     - 不启 PLL，关闭 MSI
+     - Run 电流约 1 mA，为 80MHz PLL 的 ~1/8
+     - SPI/UART/RTC 所需有效时钟均在下面调整 */
   HAL_PWR_EnableBkUpAccess();
   __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSE|RCC_OSCILLATORTYPE_MSI;
+
+  /* 1) 开 LSE + HSI16；MSI 暂保留（可能是当前 SYSCLK 源）；PLL 关闭 */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSE | RCC_OSCILLATORTYPE_HSI | RCC_OSCILLATORTYPE_MSI;
   RCC_OscInitStruct.LSEState = RCC_LSE_ON;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.MSIState = RCC_MSI_ON;
   RCC_OscInitStruct.MSICalibrationValue = 0;
   RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
-  RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 40;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
-  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
-  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_OFF;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
   }
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
+
+  /* 2) SYSCLK = HSI16，AHB/APB 不分频，Flash 2WS（兼容 Range 1/Range 2 @16MHz）*/
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
-  /** Enable MSI Auto calibration
-  */
-  HAL_RCCEx_EnableMSIPLLMode();
+
+  /* 3) 现在 SYSCLK 是 HSI，可以安全关掉 MSI */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.MSIState = RCC_MSI_OFF;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* 4) 切到 Range 2 调压器（要求 SYSCLK ≤ 26MHz，现为 16MHz，满足）*/
+  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* RTC 时钟源 = LSE，USART2 时钟源 = HSI16（供 Stop 模式唤醒使用）*/
+  p.PeriphClockSelection = RCC_PERIPHCLK_RTC | RCC_PERIPHCLK_USART2;
+  p.RTCClockSelection    = RCC_RTCCLKSOURCE_LSE;
+  p.Usart2ClockSelection = RCC_USART2CLKSOURCE_HSI;
+  if (HAL_RCCEx_PeriphCLKConfig(&p) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /**
@@ -357,7 +442,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;   /* Mode 0 for ST7305 */
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;       /* Mode 0 for ST7305 */
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;  /* PCLK2 16MHz /2 = 8MHz */
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -380,7 +465,7 @@ static void MX_SPI1_Init(void)
 static void MX_I2C1_Init(void)
 {
   hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x10909CEC;          /* 100kHz @ PCLK1=80MHz */
+  hi2c1.Init.Timing = 0x00303D5B;          /* 100kHz @ PCLK1=16MHz (HSI16) */
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -423,6 +508,116 @@ static void MX_USART2_UART_Init(void)
   }
 }
 
+/* ===== RTC + Stop2 低功耗辅助 ===== */
+
+/* 初始化 RTC（LSE 32.768kHz 驱动，1Hz 计时）。首次上电填默认时间，后续复位保留 RTC 计时。*/
+static void MX_RTC_Init(void)
+{
+  __HAL_RCC_RTC_ENABLE();
+  __HAL_RCC_RTCAPB_CLK_ENABLE();
+
+  hrtc.Instance            = RTC;
+  hrtc.Init.HourFormat     = RTC_HOURFORMAT_24;
+  hrtc.Init.AsynchPrediv   = 127;
+  hrtc.Init.SynchPrediv    = 255;
+  hrtc.Init.OutPut         = RTC_OUTPUT_DISABLE;
+  hrtc.Init.OutPutRemap    = RTC_OUTPUT_REMAP_NONE;
+  hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
+  hrtc.Init.OutPutType     = RTC_OUTPUT_TYPE_OPENDRAIN;
+  if (HAL_RTC_Init(&hrtc) != HAL_OK) { Error_Handler(); }
+
+  /* 首次上电才写默认时间，靠备份寄存器 0 作为“已初始化”标记 */
+  if (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR0) != 0x32F2U)
+  {
+    RTC_DateTypeDef d = {0};
+    RTC_TimeTypeDef t = {0};
+    d.Year    = 26;
+    d.Month   = RTC_MONTH_JANUARY;
+    d.Date    = 1;
+    d.WeekDay = RTC_WEEKDAY_THURSDAY;
+    t.Hours   = 0; t.Minutes = 0; t.Seconds = 0;
+    t.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+    t.StoreOperation = RTC_STOREOPERATION_RESET;
+    HAL_RTC_SetDate(&hrtc, &d, RTC_FORMAT_BIN);
+    HAL_RTC_SetTime(&hrtc, &t, RTC_FORMAT_BIN);
+    HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR0, 0x32F2U);
+  }
+
+  HAL_NVIC_SetPriority(RTC_WKUP_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(RTC_WKUP_IRQn);
+}
+
+/* 设置 RTC 周期唤醒（1Hz 时钟源，1–65535s）*/
+static void rtc_set_wakeup_seconds(uint32_t s)
+{
+  HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);
+  HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, (uint32_t)(s - 1U), RTC_WAKEUPCLOCK_CK_SPRE_16BITS);
+}
+
+/* 从 RTC 读取当前日期时间到 g_date / g_hh / g_mm / g_ss */
+static void rtc_read_into_globals(void)
+{
+  RTC_TimeTypeDef t;
+  RTC_DateTypeDef d;
+  /* HAL 要求读 Time 后紧接着读 Date 以解锁影子寄存器 */
+  HAL_RTC_GetTime(&hrtc, &t, RTC_FORMAT_BIN);
+  HAL_RTC_GetDate(&hrtc, &d, RTC_FORMAT_BIN);
+  g_hh = t.Hours; g_mm = t.Minutes; g_ss = t.Seconds;
+  snprintf(g_date, sizeof(g_date), "20%02d-%02d-%02d", d.Year, d.Month, d.Date);
+}
+
+/* 将 "YYYY-MM-DD" + HH:MM:SS 写入 RTC */
+static void rtc_write_datetime(const char *date, uint8_t hh, uint8_t mm, uint8_t ss)
+{
+  if (date == NULL) return;
+  int yyyy = (date[0]-'0')*1000 + (date[1]-'0')*100 + (date[2]-'0')*10 + (date[3]-'0');
+  int mo   = (date[5]-'0')*10  + (date[6]-'0');
+  int dd   = (date[8]-'0')*10  + (date[9]-'0');
+  if (yyyy < 2000 || yyyy > 2099 || mo < 1 || mo > 12 || dd < 1 || dd > 31) return;
+
+  RTC_DateTypeDef d = {0};
+  RTC_TimeTypeDef t = {0};
+  d.Year  = (uint8_t)(yyyy - 2000);
+  d.Month = (uint8_t)mo;
+  d.Date  = (uint8_t)dd;
+  d.WeekDay = RTC_WEEKDAY_MONDAY;
+  t.Hours = hh; t.Minutes = mm; t.Seconds = ss;
+  t.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+  t.StoreOperation = RTC_STOREOPERATION_RESET;
+  HAL_RTC_SetDate(&hrtc, &d, RTC_FORMAT_BIN);
+  HAL_RTC_SetTime(&hrtc, &t, RTC_FORMAT_BIN);
+}
+
+/* 启用 USART2 在 Stop 下被起始位唤醒（USART2 时钟源须为 HSI16/LSE）*/
+static void enable_usart2_stop_wakeup(void)
+{
+  UART_WakeUpTypeDef w = {0};
+  w.WakeUpEvent = UART_WAKEUP_ON_STARTBIT;
+  if (HAL_UARTEx_StopModeWakeUpSourceConfig(&huart2, w) != HAL_OK) { Error_Handler(); }
+  if (HAL_UARTEx_EnableStopMode(&huart2) != HAL_OK) { Error_Handler(); }
+
+  __HAL_UART_ENABLE_IT(&huart2, UART_IT_WUF);
+  HAL_NVIC_SetPriority(USART2_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(USART2_IRQn);
+}
+
+/* 进入 Stop 2，醒来后重跑时钟配置恢复 PLL = 80MHz */
+static void enter_stop2_and_restore(void)
+{
+  HAL_SuspendTick();
+  HAL_PWREx_EnterSTOP2Mode(PWR_STOPENTRY_WFI);
+  /* 醒来后 SYSCLK 退回 MSI，PLL 被关闭。重跑时钟配置。*/
+  SystemClock_Config();
+  HAL_ResumeTick();
+}
+
+void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *h)
+{
+  (void)h;
+  g_uptime_s      += 5U;
+  g_wakeup_pending = 1;
+}
+
 /**
   * @brief GPIO Initialization Function
   * @param None
@@ -457,6 +652,30 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(LCD_RES_GPIO_Port, &GPIO_InitStruct);
+
+  /* ESP 电源使能：先确保关电，再配为推挽输出 */
+  HAL_GPIO_WritePin(ESP_EN_GPIO_Port, ESP_EN_Pin, GPIO_PIN_RESET);
+  GPIO_InitStruct.Pin = ESP_EN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(ESP_EN_GPIO_Port, &GPIO_InitStruct);
+
+  /* 剩下所有未使用的 GPIO 都配为 Analog + No-Pull，消除浮空漏电（SWD: PA13/PA14 保留）*/
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pin  = GPIO_PIN_0 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10
+                       | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_15;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin  = GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5
+                       | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11
+                       | GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  GPIO_InitStruct.Pin  = GPIO_PIN_0  | GPIO_PIN_1  | GPIO_PIN_2  | GPIO_PIN_3
+                       | GPIO_PIN_4  | GPIO_PIN_5  | GPIO_PIN_6  | GPIO_PIN_7
+                       | GPIO_PIN_8  | GPIO_PIN_9  | GPIO_PIN_10 | GPIO_PIN_11
+                       | GPIO_PIN_12 | GPIO_PIN_13;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
 }
 
@@ -743,24 +962,6 @@ static int gregorian_to_lunar(int gy, int gm, int gd,
 }
 
 
-/* \u672c\u5730\u79d2\u8868 +1\uff0c\u52a0\u5165\u5fc5\u8981\u7684\u8fdb\u4f4d\uff08\u65e5\u671f\u4ec5\u5728\u4e0b\u4e00\u6b21\u540c\u6b65\u5e27\u91cd\u65b0\u8d4b\u503c\uff09*/
-static void tick_one_second(void)
-{
-  if (g_ss < 59)
-  {
-    g_ss++;
-    return;
-  }
-  g_ss = 0;
-  if (g_mm < 59)
-  {
-    g_mm++;
-    return;
-  }
-  g_mm = 0;
-  g_hh = (uint8_t)((g_hh + 1) % 24);
-}
-
 static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
                           int16_t temp_x10, uint16_t rh_x10,
                           uint8_t esp_online, uint8_t wifi_up,
@@ -940,8 +1141,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
         g_mm = mm;
         g_ss = ss;
         g_time_synced = 1;
+        rtc_write_datetime(g_date, hh, mm, ss);
         frame_ok = 1;
       }
+    }
+    /* D\n 会话结束，主控可切电 */
+    else if (g_line_len == 1 && g_line_buf[0] == 'D')
+    {
+      g_esp_session_done = 1;
+      frame_ok = 1;
     }
     /* S:W \u6216 S:N (3 \u5b57\u7b26) */
     else if (g_line_len == 3 && g_line_buf[0] == 'S' && g_line_buf[1] == ':')
@@ -982,13 +1190,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
         if (v >  99) v =  99;
         g_w_code         = wcode;
         g_w_temp_c       = (int8_t)v;
-        g_w_last_seen_ms = HAL_GetTick();
+        g_w_last_seen_ms = g_uptime_s;
         frame_ok = 1;
       }
     }
     if (frame_ok)
     {
-      g_esp_last_seen_ms = HAL_GetTick();
+      g_esp_last_seen_ms = g_uptime_s;
     }
     g_line_len = 0;
   }

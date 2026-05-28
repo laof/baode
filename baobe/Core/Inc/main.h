@@ -64,6 +64,9 @@ void Error_Handler(void);
 #define LCD_DS_GPIO_Port GPIOA
 #define LCD_RES_Pin GPIO_PIN_0
 #define LCD_RES_GPIO_Port GPIOB
+/* PB1 -> NPN base (1k 串入)，HIGH = 副控 ESP32 上电 */
+#define ESP_EN_Pin GPIO_PIN_1
+#define ESP_EN_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

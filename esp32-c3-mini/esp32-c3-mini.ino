@@ -1,178 +1,123 @@
 /*
- * 副控：ESP32-C3-Pro Mini
- *  - 联 Wi-Fi
- *  - NTP 同步时间（北京时间 UTC+8）
- *  - 通过 Serial1 (GPIO4=TX, GPIO5=RX) 以 115200 8N1
- *    每 10 秒发送一帧 "T:YYYY-MM-DD HH:MM:SS\n" 给主控 STM32L443
+ * 副控：ESP32-C3-Pro Mini  (单次上电工作版)
  *
- * 接线（在原有基础上加 3 根）：
- *   ESP32 GPIO4 (Serial1 TX) ──► STM32 PA3 (USART2_RX)   时间数据，必接
- *   ESP32 GPIO5 (Serial1 RX) ──► STM32 PA2 (USART2_TX)   预留双向，可不接
+ * 工作模型（配合主控 STM32L443 的电源管理）：
+ *   1. 主控通过三极管把 ESP32 模组上电
+ *   2. ESP32 开机 -> 连 Wi-Fi -> 上报 Wi-Fi 状态 (S:W / S:N)
+ *   3. 成功联网 -> NTP 校时 -> 发一帧 T:YYYY-MM-DD HH:MM:SS
+ *   4. 拉一次天气 -> 发一帧 W:<code>,<temp>
+ *   5. 不论成败，最后发 "D\n" 表示本轮会话结束
+ *   6. 进入 deep sleep / 空转，等待主控断电
+ *
+ * 接线：
+ *   ESP32 GPIO4 (Serial1 TX) ──► STM32 PA3 (USART2_RX)   必接
+ *   ESP32 GPIO5 (Serial1 RX) ──► STM32 PA2 (USART2_TX)   可选，本固件不用
  *   ESP32 GND                ──► STM32 GND               共地，必接
+ *   ESP32 模组 VCC           ──► 高边开关（PNP/PMOS）由 STM32 PB1 控制
  */
 
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClient.h>
 #include <time.h>
-#include "secrets.h"   // Wi-Fi 凭据，仅本地，.gitignore 已排除
+#include "esp_sleep.h"
+#include "secrets.h"
 
-/* NTP 服务器（国内推荐）*/
 static const char *NTP_1 = "ntp.aliyun.com";
 static const char *NTP_2 = "cn.pool.ntp.org";
 static const char *NTP_3 = "pool.ntp.org";
 
-/* 时区：北京时间 UTC+8 */
-static const long  GMT_OFFSET_SEC      = 8 * 3600;
-static const int   DAYLIGHT_OFFSET_SEC = 0;
+static const long GMT_OFFSET_SEC      = 8 * 3600;
+static const int  DAYLIGHT_OFFSET_SEC = 0;
 
-/* UART1 引脚（连 STM32 USART2）*/
-static const int UART_TX_PIN = 4;   // GPIO4 -> STM32 PA3 (RX)
-static const int UART_RX_PIN = 5;   // GPIO5 <- STM32 PA2 (TX)
+static const int UART_TX_PIN = 4;
+static const int UART_RX_PIN = 5;
 static const uint32_t UART_BAUD = 115200;
 
-/* 发送周期 */
-static const uint32_t SEND_INTERVAL_MS    = 10 * 1000;        // 10s 一帧时间
-static const uint32_t WEATHER_INTERVAL_MS = 60UL * 60 * 1000; // 1h 一次天气
+/* 单次会话各阶段的最长等待 */
+static const uint32_t WIFI_TIMEOUT_MS = 20000;
+static const uint32_t NTP_TIMEOUT_MS  = 15000;
 
-static uint32_t last_send_ms    = 0;
-static uint32_t last_weather_ms = 0;
-static bool     time_synced  = false;
+static void sendLine(const char *s) {
+  Serial1.write((const uint8_t *)s, strlen(s));
+  Serial1.flush();
+  Serial.print(s);
+}
 
-static void connectWiFi() {
+static bool connectWiFi() {
   Serial.printf("[WiFi] connecting to %s ...\n", WIFI_SSID);
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 
   uint32_t t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && (millis() - t0) < 30000) {
-    delay(500);
-    Serial.print('.');
+  while (WiFi.status() != WL_CONNECTED && (millis() - t0) < WIFI_TIMEOUT_MS) {
+    delay(200);
   }
-  Serial.println();
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.printf("[WiFi] OK, IP=%s, RSSI=%d\n",
-                  WiFi.localIP().toString().c_str(), WiFi.RSSI());
-  } else {
-    Serial.println("[WiFi] FAIL, will retry in loop()");
-  }
+  bool ok = (WiFi.status() == WL_CONNECTED);
+  Serial.printf("[WiFi] %s\n", ok ? "OK" : "FAIL");
+  sendLine(ok ? "S:W\n" : "S:N\n");
+  return ok;
 }
 
-static void syncNTP() {
+static bool syncAndSendTime() {
   configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_1, NTP_2, NTP_3);
-  Serial.println("[NTP] syncing...");
-
   struct tm tm_now;
   uint32_t t0 = millis();
-  while (!getLocalTime(&tm_now, 200) && (millis() - t0) < 15000) {
-    Serial.print('.');
-  }
-  Serial.println();
-
-  if (getLocalTime(&tm_now, 200)) {
-    time_synced = true;
-    Serial.printf("[NTP] OK, %04d-%02d-%02d %02d:%02d:%02d\n",
-                  tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
-                  tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
-  } else {
+  while (!getLocalTime(&tm_now, 200) && (millis() - t0) < NTP_TIMEOUT_MS) {}
+  if (!getLocalTime(&tm_now, 200)) {
     Serial.println("[NTP] FAIL");
+    return false;
   }
-}
-
-/* 发送一帧 "T:YYYY-MM-DD HH:MM:SS\n" */
-static void sendTime() {
-  struct tm tm_now;
-  if (!getLocalTime(&tm_now, 50)) {
-    Serial.println("[TX] no time yet");
-    return;
-  }
-
   char buf[32];
   int n = snprintf(buf, sizeof(buf), "T:%04d-%02d-%02d %02d:%02d:%02d\n",
                    tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
                    tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
   Serial1.write((const uint8_t *)buf, n);
   Serial1.flush();
-
-  /* 把同一帧也打到 USB 串口，便于电脑端肉眼观察 */
   Serial.printf("[TX] %s", buf);
+  return true;
 }
 
-/* 把当前 Wi-Fi 状态回给主控：S:W\n 已连 / S:N\n 未连 */
-static void sendWifiStatus() {
-  const char *msg = (WiFi.status() == WL_CONNECTED) ? "S:W\n" : "S:N\n";
-  Serial1.write((const uint8_t *)msg, strlen(msg));
-  Serial1.flush();
-  Serial.printf("[TX] %s", msg);
-}
-
-/* 把 wttr.in 返回的天气描述文本归类为 5 种图标代码：
- *   0=晴  1=多云  2=阴/雾  3=雨  4=雪
- * 区分不了的默认算 2（多云/阴）。*/
 static int classifyCondition(const String &cond) {
-  String c = cond;
-  c.toLowerCase();
+  String c = cond; c.toLowerCase();
   if (c.indexOf("thunder") >= 0 || c.indexOf("rain")   >= 0
    || c.indexOf("drizzle") >= 0 || c.indexOf("shower") >= 0) return 3;
   if (c.indexOf("snow")    >= 0 || c.indexOf("sleet")  >= 0
    || c.indexOf("blizzard")>= 0 || c.indexOf("ice")    >= 0) return 4;
   if (c.indexOf("partly")  >= 0) return 1;
   if (c.indexOf("sunny")   >= 0 || c.indexOf("clear")  >= 0) return 0;
-  return 2;  // cloudy / overcast / mist / fog / haze / 未知
+  return 2;
 }
 
-/* 从 "+18\xc2\xb0C" 这样的串中取出有符号整数。*/
 static int parseSignedTemp(const String &s) {
-  int sign = 1;
-  int i = 0;
-  int n = (int)s.length();
+  int sign = 1, i = 0, n = s.length();
   while (i < n && (s[i] == ' ' || s[i] == '+')) i++;
   if (i < n && s[i] == '-') { sign = -1; i++; }
-  int v = 0;
-  bool got = false;
+  int v = 0; bool got = false;
   while (i < n && isDigit(s[i])) { v = v * 10 + (s[i] - '0'); got = true; i++; }
   return got ? sign * v : 0;
 }
 
-/* 拉一次天气，成功后向主控发一帧 "W:<code>,<temp>\n" */
 static bool fetchWeather() {
-  if (WiFi.status() != WL_CONNECTED) return false;
-
-  /* 在序事代码中需要 URL-encode 的只有空格，这里简单起见把空格换成 + */
   String city = String(WEATHER_CITY);
   city.replace(" ", "+");
-
   String url = "http://wttr.in/" + city + "?format=%C|%t&m";
 
   WiFiClient client;
   HTTPClient http;
   http.setTimeout(8000);
-  if (!http.begin(client, url)) {
-    Serial.println("[WX] http.begin fail");
-    return false;
-  }
+  if (!http.begin(client, url)) return false;
   int code = http.GET();
-  if (code != HTTP_CODE_OK) {
-    Serial.printf("[WX] HTTP %d\n", code);
-    http.end();
-    return false;
-  }
+  if (code != HTTP_CODE_OK) { http.end(); return false; }
   String body = http.getString();
   http.end();
   body.trim();
-  Serial.printf("[WX] raw: %s\n", body.c_str());
+  Serial.printf("[WX] %s\n", body.c_str());
 
   int bar = body.indexOf('|');
-  if (bar <= 0) {
-    Serial.println("[WX] bad format");
-    return false;
-  }
-  String cond = body.substring(0, bar);
-  String temp = body.substring(bar + 1);
-
-  int wcode = classifyCondition(cond);
-  int wtemp = parseSignedTemp(temp);
+  if (bar <= 0) return false;
+  int wcode = classifyCondition(body.substring(0, bar));
+  int wtemp = parseSignedTemp(body.substring(bar + 1));
   if (wtemp < -99) wtemp = -99;
   if (wtemp >  99) wtemp =  99;
 
@@ -184,76 +129,30 @@ static bool fetchWeather() {
   return true;
 }
 
-/* 处理主控发来的字节，遇到 '\n' 结束一帧。
- * 目前只识别 1 个命令: "P" (ping) -> 立即回 S:W/S:N */
-static void handleRxByte(uint8_t b) {
-  static char     line[16];
-  static uint8_t  len = 0;
-
-  if (b == '\r') return;
-  if (b == '\n') {
-    line[len] = '\0';
-    if (len == 1 && line[0] == 'P') {
-      sendWifiStatus();
-    }
-    len = 0;
-    return;
-  }
-  if (len < sizeof(line) - 1) {
-    line[len++] = (char)b;
-  } else {
-    len = 0;  // 行过长丢弃
-  }
-}
-
 void setup() {
-  Serial.begin(115200);          // USB-CDC 用于调试日志
-  delay(300);
-  Serial.println("\n=== ESP32-C3 Time Bridge ===");
+  Serial.begin(115200);
+  delay(200);
+  Serial.println("\n=== ESP32-C3 one-shot session ===");
 
   Serial1.begin(UART_BAUD, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
 
-  connectWiFi();
-  if (WiFi.status() == WL_CONNECTED) {
-    syncNTP();
+  if (connectWiFi()) {
+    syncAndSendTime();
+    fetchWeather();
   }
+
+  /* 通知主控本次会话结束 */
+  sendLine("D\n");
+
+  /* 进入深度睡眠：当前无硬件电源开关，靠定时唤醒做 3 小时自循环。
+   * 以后若接上主控控制的电源开关（方案 A），把 esp_sleep_enable_timer_wakeup
+   * 这行删掉即可改为"永远睡，靠主控切电唤醒"。 */
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  esp_sleep_enable_timer_wakeup(3ULL * 3600ULL * 1000000ULL);  /* 3h */
+  esp_deep_sleep_start();
 }
 
 void loop() {
-  /* 处理主控发过来的 ping，立刻回 Wi-Fi 状态 */
-  while (Serial1.available()) {
-    handleRxByte((uint8_t)Serial1.read());
-  }
-
-  /* Wi-Fi 掉线自动重连 */
-  if (WiFi.status() != WL_CONNECTED) {
-    static uint32_t last_retry = 0;
-    if (millis() - last_retry > 10000) {
-      last_retry = millis();
-      Serial.println("[WiFi] reconnecting...");
-      WiFi.disconnect();
-      WiFi.begin(WIFI_SSID, WIFI_PASS);
-    }
-    return;
-  }
-
-  /* 首次未同步成功的兜底重试 */
-  if (!time_synced) {
-    syncNTP();
-  }
-
-  /* 定时发送 */
-  if (time_synced && (millis() - last_send_ms >= SEND_INTERVAL_MS || last_send_ms == 0)) {
-    last_send_ms = millis();
-    sendTime();
-  }
-  /* 每小时拉一次天气，首次同步成功后立刻来一次 */
-  if (time_synced && (last_weather_ms == 0
-        || (millis() - last_weather_ms) >= WEATHER_INTERVAL_MS)) {
-    if (fetchWeather()) {
-      last_weather_ms = millis();
-    } else {
-      /* 失败不记录，1 分钟后重试一次，避免狂重试 */
-      last_weather_ms = millis() - (WEATHER_INTERVAL_MS - 60UL * 1000);
-    }
-  }}
+  /* 不会执行到这里：setup 已进入 deep sleep */
+}
