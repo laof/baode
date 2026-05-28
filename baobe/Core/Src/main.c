@@ -334,10 +334,10 @@ int main(void)
                            ((g_uptime_s - g_esp_last_seen_ms) < 60U);
       int8_t  w_code     = (g_w_last_seen_ms != 0) ? g_w_code   : (int8_t)-1;
       int8_t  w_temp_c   = (g_w_last_seen_ms != 0) ? g_w_temp_c : (int8_t)0;
-      st7305_sleep_out(&g_lcd);
+      /* ST7305 是双稳态屏，IC 自身常态待机 ~30µA，开 SLPIN 需 120ms 唤醒 delay
+         反而让平均功耗变高。这里不进 sleep，直接刷屏。 */
       render_screen(g_date, g_hh, g_mm, g_ss, last_temp_x10, last_rh_x10,
                     esp_online, g_wifi_up, w_code, w_temp_c, last_bat_bars);
-      st7305_sleep_in(&g_lcd);
     }
 
     /* 重新挂上 UART 接收（Stop 唤醒后中断链路可能需要重新 arm） */
