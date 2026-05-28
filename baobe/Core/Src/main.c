@@ -607,7 +607,7 @@ static void enable_usart2_stop_wakeup(void)
 static void enter_stop2_and_restore(void)
 {
   HAL_SuspendTick();
-  HAL_PWREx_EnterSTOP1Mode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI);
+  HAL_PWREx_EnterSTOP1Mode(PWR_STOPENTRY_WFI);
   /* 醒来后 SYSCLK 退回 MSI，PLL 被关闭。重跑时钟配置。*/
   SystemClock_Config();
   HAL_ResumeTick();
