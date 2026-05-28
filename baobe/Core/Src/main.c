@@ -600,11 +600,14 @@ static void enable_usart2_stop_wakeup(void)
   HAL_NVIC_EnableIRQ(USART2_IRQn);
 }
 
-/* 进入 Stop 2，醒来后重跑时钟配置恢复 PLL = 80MHz */
+/* 进入 Stop 1，醒来后重跑时钟配置恢复 SYSCLK。
+   注意：STM32L431 的 USART2 只支持 Stop 0/1 唤醒，Stop 2 下 USART 完全断电
+   收不到 ESP 数据，所以这里必须用 Stop 1。
+   Stop 1 typical ~5µA，比 Stop 2 ~1.4µA 多约 3µA，对续航影响 <1 天。 */
 static void enter_stop2_and_restore(void)
 {
   HAL_SuspendTick();
-  HAL_PWREx_EnterSTOP2Mode(PWR_STOPENTRY_WFI);
+  HAL_PWREx_EnterSTOP1Mode(PWR_MAINREGULATOR_ON, PWR_STOPENTRY_WFI);
   /* 醒来后 SYSCLK 退回 MSI，PLL 被关闭。重跑时钟配置。*/
   SystemClock_Config();
   HAL_ResumeTick();
