@@ -192,8 +192,7 @@ static uint32_t bat_read_mv(void)
   /* PA1 经 100k/100k 分压看到 VBAT/2，所以 *2 还原 */
   uint32_t vbat_mv  = ((uint32_t)pa1_raw * vdda_mv * 2UL) / 4095UL;
 
-  /* 量完立刻关掉 ADC 内核 + 时钟，避免持续耗 ~150 µA */
-  __HAL_ADC_DISABLE(&hadc_bat);
+  /* 量完立刻关 ADC 时钟，避免持续耗 ~150 µA（ADEN 已在 HAL_ADC_Stop 内清零）*/
   __HAL_RCC_ADC_CLK_DISABLE();
   return vbat_mv;
 }
