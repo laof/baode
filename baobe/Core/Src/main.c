@@ -1158,28 +1158,14 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
 
       if (fc_code[i] >= 0)
       {
-        if (i == 0)
-        {
-          /* 今天：图标 s=2 → 56×44，温度 s=3 */
-          uint16_t icon_x = (uint16_t)(cell_x + (cell_w - 56) / 2);
-          draw_icon_weather(icon_x, 142, 2, fc_code[i]);
-          char ts[8];
-          snprintf(ts, sizeof(ts), "%dC", (int)fc_temp[i]);
-          uint16_t tw = (uint16_t)(strlen(ts) * 6 * 3);
-          uint16_t tx = (uint16_t)(cell_x + (cell_w - tw) / 2);
-          st7305_draw_string(&g_lcd, tx, 196, ts, ST7305_COLOR_BLACK, 3);
-        }
-        else
-        {
-          /* 其他天：图标 s=1 → 28×22，温度 s=2 */
-          uint16_t icon_x = (uint16_t)(cell_x + (cell_w - 28) / 2);
-          draw_icon_weather(icon_x, 158, 1, fc_code[i]);
-          char ts[8];
-          snprintf(ts, sizeof(ts), "%dC", (int)fc_temp[i]);
-          uint16_t tw = (uint16_t)(strlen(ts) * 6 * 2);
-          uint16_t tx = (uint16_t)(cell_x + (cell_w - tw) / 2);
-          st7305_draw_string(&g_lcd, tx, 200, ts, ST7305_COLOR_BLACK, 2);
-        }
+        /* 所有列统一：图标 s=1（28×22），温度 s=2；今天靠双倍宽留白突出 */
+        uint16_t icon_x = (uint16_t)(cell_x + (cell_w - 28) / 2);
+        draw_icon_weather(icon_x, 158, 1, fc_code[i]);
+        char ts[8];
+        snprintf(ts, sizeof(ts), "%dC", (int)fc_temp[i]);
+        uint16_t tw = (uint16_t)(strlen(ts) * 6 * 2);
+        uint16_t tx = (uint16_t)(cell_x + (cell_w - tw) / 2);
+        st7305_draw_string(&g_lcd, tx, 192, ts, ST7305_COLOR_BLACK, 2);
       }
 
       /* 推进到下一天 */
