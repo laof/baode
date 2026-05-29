@@ -4,8 +4,11 @@
 #include "stm32l4xx_hal.h"
 #include <stdint.h>
 
-#define ST7305_WIDTH 300
-#define ST7305_HEIGHT 400
+/* 横屏使用坐标（驱动内部把 (x,y) 旋转 90° CW 映射到 300×400 原生面板） */
+#define ST7305_WIDTH 400
+#define ST7305_HEIGHT 300
+#define ST7305_NATIVE_WIDTH 300
+#define ST7305_NATIVE_HEIGHT 400
 #define ST7305_BUFFER_SIZE 15000
 
 #define ST7305_COLOR_WHITE 0
