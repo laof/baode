@@ -3,11 +3,11 @@
 <title>Static Call Graph - [baobe\baobe.axf]</title></head>
 <body><HR>
 <H1>Static Call Graph for image baobe\baobe.axf</H1><HR>
-<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 6240002: Last Updated: Fri May 29 01:16:23 2026
+<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 6240002: Last Updated: Fri May 29 21:37:09 2026
 <BR><P>
-<H3>Maximum Stack Usage =        704 bytes + Unknown(Functions without stacksize, Cycles, Untraceable Function Pointers)</H3><H3>
+<H3>Maximum Stack Usage =        800 bytes + Unknown(Functions without stacksize, Cycles, Untraceable Function Pointers)</H3><H3>
 Call chain for Maximum Stack Depth:</H3>
-__rt_entry_main &rArr; main &rArr; render_screen &rArr; __0sscanf &rArr; __vfscanf_char &rArr; __vfscanf &rArr; _scanf_int
+__rt_entry_main &rArr; main &rArr; render_screen &rArr; draw_icon_weather &rArr; draw_cloud &rArr; st7305_draw_pixel
 <P>
 <H3>
 Functions with no stack information
@@ -271,8 +271,8 @@ Global Symbols
 <P><STRONG><a name="[112]"></a>__rt_entry_postsh_1</STRONG> (Thumb, 0 bytes, Stack size unknown bytes, __rtentry2.o(.ARM.Collect$$rtentry$$00000009))
 
 <P><STRONG><a name="[6a]"></a>__rt_entry_main</STRONG> (Thumb, 0 bytes, Stack size unknown bytes, __rtentry2.o(.ARM.Collect$$rtentry$$0000000D))
-<BR><BR>[Stack]<UL><LI>Max Depth = 704 + Unknown Stack Size
-<LI>Call Chain = __rt_entry_main &rArr; main &rArr; render_screen &rArr; __0sscanf &rArr; __vfscanf_char &rArr; __vfscanf &rArr; _scanf_int
+<BR><BR>[Stack]<UL><LI>Max Depth = 800 + Unknown Stack Size
+<LI>Call Chain = __rt_entry_main &rArr; main &rArr; render_screen &rArr; draw_icon_weather &rArr; draw_cloud &rArr; st7305_draw_pixel
 </UL>
 <BR>[Calls]<UL><LI><a href="#[6b]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 <LI><a href="#[6c]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;exit
@@ -1399,8 +1399,8 @@ Global Symbols
 <BR>[Address Reference Count : 1]<UL><LI> startup_stm32l443xx.o(RESET)
 </UL>
 <P><STRONG><a name="[6b]"></a>main</STRONG> (Thumb, 2344 bytes, Stack size 232 bytes, main.o(.text.main))
-<BR><BR>[Stack]<UL><LI>Max Depth = 704 + Unknown Stack Size
-<LI>Call Chain = main &rArr; render_screen &rArr; __0sscanf &rArr; __vfscanf_char &rArr; __vfscanf &rArr; _scanf_int
+<BR><BR>[Stack]<UL><LI>Max Depth = 800 + Unknown Stack Size
+<LI>Call Chain = main &rArr; render_screen &rArr; draw_icon_weather &rArr; draw_cloud &rArr; st7305_draw_pixel
 </UL>
 <BR>[Calls]<UL><LI><a href="#[e5]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_ResumeTick
 <LI><a href="#[a3]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_RCCEx_PeriphCLKConfig
@@ -1466,20 +1466,22 @@ Global Symbols
 <BR>[Called By]<UL><LI><a href="#[6b]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[eb]"></a>st7305_draw_char</STRONG> (Thumb, 5406 bytes, Stack size 112 bytes, st7305.o(.text.st7305_draw_char))
-<BR><BR>[Stack]<UL><LI>Max Depth = 112<LI>Call Chain = st7305_draw_char
+<P><STRONG><a name="[eb]"></a>st7305_draw_char</STRONG> (Thumb, 5250 bytes, Stack size 88 bytes, st7305.o(.text.st7305_draw_char))
+<BR><BR>[Stack]<UL><LI>Max Depth = 88<LI>Call Chain = st7305_draw_char
 </UL>
 <BR>[Called By]<UL><LI><a href="#[e8]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;st7305_draw_string
 </UL>
 
-<P><STRONG><a name="[d4]"></a>st7305_draw_pixel</STRONG> (Thumb, 72 bytes, Stack size 0 bytes, st7305.o(.text.st7305_draw_pixel))
-<BR><BR>[Called By]<UL><LI><a href="#[d3]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;draw_cloud
+<P><STRONG><a name="[d4]"></a>st7305_draw_pixel</STRONG> (Thumb, 88 bytes, Stack size 8 bytes, st7305.o(.text.st7305_draw_pixel))
+<BR><BR>[Stack]<UL><LI>Max Depth = 8<LI>Call Chain = st7305_draw_pixel
+</UL>
+<BR>[Called By]<UL><LI><a href="#[d3]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;draw_cloud
 <LI><a href="#[d5]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;draw_icon_weather
 <LI><a href="#[e2]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;render_screen
 </UL>
 
 <P><STRONG><a name="[e8]"></a>st7305_draw_string</STRONG> (Thumb, 66 bytes, Stack size 40 bytes, st7305.o(.text.st7305_draw_string))
-<BR><BR>[Stack]<UL><LI>Max Depth = 152<LI>Call Chain = st7305_draw_string &rArr; st7305_draw_char
+<BR><BR>[Stack]<UL><LI>Max Depth = 128<LI>Call Chain = st7305_draw_string &rArr; st7305_draw_char
 </UL>
 <BR>[Calls]<UL><LI><a href="#[eb]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;st7305_draw_char
 </UL>
@@ -1578,9 +1580,9 @@ Local Symbols
 <BR>[Called By]<UL><LI><a href="#[6b]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[e2]"></a>render_screen</STRONG> (Thumb, 10896 bytes, Stack size 248 bytes, main.o(.text.render_screen))
-<BR><BR>[Stack]<UL><LI>Max Depth = 472 + Unknown Stack Size
-<LI>Call Chain = render_screen &rArr; __0sscanf &rArr; __vfscanf_char &rArr; __vfscanf &rArr; _scanf_int
+<P><STRONG><a name="[e2]"></a>render_screen</STRONG> (Thumb, 10624 bytes, Stack size 224 bytes, main.o(.text.render_screen))
+<BR><BR>[Stack]<UL><LI>Max Depth = 568 + Unknown Stack Size
+<LI>Call Chain = render_screen &rArr; draw_icon_weather &rArr; draw_cloud &rArr; st7305_draw_pixel
 </UL>
 <BR>[Calls]<UL><LI><a href="#[ea]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;st7305_refresh
 <LI><a href="#[e8]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;st7305_draw_string
@@ -1595,8 +1597,8 @@ Local Symbols
 <BR>[Called By]<UL><LI><a href="#[6b]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[d5]"></a>draw_icon_weather</STRONG> (Thumb, 6046 bytes, Stack size 40 bytes, main.o(.text.draw_icon_weather))
-<BR><BR>[Stack]<UL><LI>Max Depth = 72<LI>Call Chain = draw_icon_weather &rArr; draw_cloud
+<P><STRONG><a name="[d5]"></a>draw_icon_weather</STRONG> (Thumb, 6810 bytes, Stack size 128 bytes, main.o(.text.draw_icon_weather))
+<BR><BR>[Stack]<UL><LI>Max Depth = 344<LI>Call Chain = draw_icon_weather &rArr; draw_cloud &rArr; st7305_draw_pixel
 </UL>
 <BR>[Calls]<UL><LI><a href="#[d4]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;st7305_draw_pixel
 <LI><a href="#[d3]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;draw_cloud
@@ -1604,8 +1606,8 @@ Local Symbols
 <BR>[Called By]<UL><LI><a href="#[e2]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;render_screen
 </UL>
 
-<P><STRONG><a name="[d3]"></a>draw_cloud</STRONG> (Thumb, 1296 bytes, Stack size 32 bytes, main.o(.text.draw_cloud))
-<BR><BR>[Stack]<UL><LI>Max Depth = 32<LI>Call Chain = draw_cloud
+<P><STRONG><a name="[d3]"></a>draw_cloud</STRONG> (Thumb, 1834 bytes, Stack size 208 bytes, main.o(.text.draw_cloud))
+<BR><BR>[Stack]<UL><LI>Max Depth = 216<LI>Call Chain = draw_cloud &rArr; st7305_draw_pixel
 </UL>
 <BR>[Calls]<UL><LI><a href="#[d4]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;st7305_draw_pixel
 </UL>
