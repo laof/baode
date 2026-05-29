@@ -963,6 +963,52 @@ static int gregorian_to_lunar(int gy, int gm, int gd,
   return 1;
 }
 
+/* 当月天数（处理闰年） */
+static int days_in_month(int y, int m)
+{
+  static const int dm[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  if (m == 2)
+  {
+    int leap = ((y % 4 == 0) && (y % 100 != 0)) || (y % 400 == 0);
+    return leap ? 29 : 28;
+  }
+  if (m < 1 || m > 12) return 30;
+  return dm[m - 1];
+}
+
+/* 小日历：7 列 × 最多 6 行，每格 6×6，间距 1px。
+   过去：空心方块；今天与未来：实心方块。整体 48×41。
+   起始列按周一=0 计算（中国习惯）。*/
+#define MINI_CAL_W 48
+#define MINI_CAL_H 41
+static void draw_mini_calendar(int year, int month, int today, uint16_t x, uint16_t y)
+{
+  int dim    = days_in_month(year, month);
+  int jdn1   = ymd_to_jdn(year, month, 1);
+  int col0   = jdn1 % 7;          /* Mon=0..Sun=6 */
+
+  for (int d = 1; d <= dim; d++)
+  {
+    int idx = col0 + (d - 1);
+    int row = idx / 7;
+    int col = idx % 7;
+    uint16_t cx = (uint16_t)(x + col * 7);
+    uint16_t cy = (uint16_t)(y + row * 7);
+    if (d < today)
+    {
+      /* 空心：4 条边 */
+      fill_rect(cx,           cy,           6, 1, ST7305_COLOR_BLACK);
+      fill_rect(cx,           (uint16_t)(cy + 5), 6, 1, ST7305_COLOR_BLACK);
+      fill_rect(cx,           cy,           1, 6, ST7305_COLOR_BLACK);
+      fill_rect((uint16_t)(cx + 5), cy,     1, 6, ST7305_COLOR_BLACK);
+    }
+    else
+    {
+      /* 实心（今天 + 未来） */
+      fill_rect(cx, cy, 6, 6, ST7305_COLOR_BLACK);
+    }
+  }
+}
 
 static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
                           int16_t temp_x10, uint16_t rh_x10,
@@ -1028,29 +1074,35 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   /* 分隔线 1：顶部栏下方 */
   fill_rect(0, 26, 400, 1, ST7305_COLOR_BLACK);
 
-  /* ===== 焦点 1：露点 y=32..96，s=6 ===== */
+  /* ===== 焦点：露点 y=32..96，s=6（去图标，左对齐） + 右侧小日历 ===== */
   if (dew_valid)
   {
-    draw_icon_drop(8, 32, 4);                                /* 56×64，cy=64 */
     /* s=6 文字：高=42，y=43 时中线 64 */
-    st7305_draw_string(&g_lcd, 80, 43, dew_str, ST7305_COLOR_BLACK, 6);
+    st7305_draw_string(&g_lcd, 8, 43, dew_str, ST7305_COLOR_BLACK, 6);
     if (dry)
     {
       uint16_t dew_w = (uint16_t)(strlen(dew_str) * 6 * 6);
-      uint16_t bx    = (uint16_t)(80 + dew_w + 14);
+      uint16_t bx    = (uint16_t)(8 + dew_w + 14);
       /* "!" 高度 = 28 + 6 间隙 + 5 点 = 39，居中到 cy=64 */
       fill_rect(bx, 45,                5, 28, ST7305_COLOR_BLACK);
       fill_rect(bx, (uint16_t)(45 + 34), 5, 5,  ST7305_COLOR_BLACK);
     }
   }
+  /* 右上小日历：右对齐到 x=396，纵向在露点行内居中（cy=64 → y=44） */
+  {
+    int gy = 0, gmo = 0, gda = 0;
+    if (sscanf(date, "%d-%d-%d", &gy, &gmo, &gda) == 3)
+    {
+      draw_mini_calendar(gy, gmo, gda,
+                         (uint16_t)(400 - 4 - MINI_CAL_W),    /* x = 348 */
+                         (uint16_t)(64 - MINI_CAL_H / 2));    /* y = 44 */
+    }
+  }
 
-  /* ===== 焦点 2：湿度 y=108..136，s=4（28 高） ===== */
-  st7305_draw_string(&g_lcd, 8, 108, hum_str, ST7305_COLOR_BLACK, 4);
+  /* 分隔线 2：露点与天气之间 */
+  fill_rect(0, 106, 400, 1, ST7305_COLOR_BLACK);
 
-  /* 分隔线 2：湿度与天气之间 */
-  fill_rect(0, 146, 400, 1, ST7305_COLOR_BLACK);
-
-  /* ===== 三日天气 y=156..240：3 列等宽，每列 icon 上 / 温度下 ===== */
+  /* ===== 三日天气 y=116..230：3 列等宽，每列 icon 上 / 温度下 ===== */
   for (uint8_t i = 0; i < 3; i++)
   {
     if (fc_code[i] < 0) continue;
@@ -1058,22 +1110,28 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
     uint16_t cell_x = (uint16_t)(i * cell_w);
     /* 天气图标 s=2 → 56×44 */
     uint16_t icon_x = (uint16_t)(cell_x + (cell_w - 56) / 2);
-    draw_icon_weather(icon_x, 158, 2, fc_code[i]);
+    draw_icon_weather(icon_x, 122, 2, fc_code[i]);
     /* 温度 s=3，居中：最长 "-99C" 4 字 → 4*6*3=72 宽 */
     char ts[8];
     snprintf(ts, sizeof(ts), "%dC", (int)fc_temp[i]);
     uint16_t tw = (uint16_t)(strlen(ts) * 6 * 3);
     uint16_t tx = (uint16_t)(cell_x + (cell_w - tw) / 2);
-    st7305_draw_string(&g_lcd, tx, 216, ts, ST7305_COLOR_BLACK, 3);
+    st7305_draw_string(&g_lcd, tx, 200, ts, ST7305_COLOR_BLACK, 3);
   }
 
   /* 分隔线 3：天气与底部之间 */
   fill_rect(0, 250, 400, 1, ST7305_COLOR_BLACK);
 
-  /* ===== 底部 y=260..286 ===== */
-  /* 左：室内温度 T:xx.xC，s=3（高 21），y=263 → 中线 274 */
-  st7305_draw_string(&g_lcd, 8, 263, temp_str, ST7305_COLOR_BLACK, 3);
-  /* 右：月亮 + 农历 MM-DD，s=2，右对齐到 x=396 */
+  /* ===== 底部 y=260..286：全部 s=2，与顶部日期时间同字号 ===== */
+  /* 三段平均分布：左 T 室内温度 · 中 H 湿度 · 右 月亮 + 农历 */
+  /* T:xx.xC s=2：最长 "T:-99.9C" 8 字 → 8*6*2=96 宽 */
+  st7305_draw_string(&g_lcd, 8, 267, temp_str, ST7305_COLOR_BLACK, 2);
+  /* H 居中：最长 "H:99.9%" 7 字 → 7*6*2=84 宽，中心 x=200 → 起点 158 */
+  {
+    uint16_t hum_w = (uint16_t)(strlen(hum_str) * 6 * 2);
+    st7305_draw_string(&g_lcd, (uint16_t)(200 - hum_w / 2), 267, hum_str, ST7305_COLOR_BLACK, 2);
+  }
+  /* 月亮 + 农历 MM-DD，s=2，右对齐到 x=396 */
   {
     int gy = 0, gmo = 0, gda = 0;
     if (sscanf(date, "%d-%d-%d", &gy, &gmo, &gda) == 3)
@@ -1084,7 +1142,7 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
         (void)ly;
         char lstr[8];
         snprintf(lstr, sizeof(lstr), "%s%d-%d", leap ? "*" : "", lm, ld);
-        const uint16_t row_cy = 274;                          /* 与左侧温度同中线 */
+        const uint16_t row_cy = 274;                          /* 底部行中线 */
         const uint16_t lun_w  = (uint16_t)(strlen(lstr) * 6 * 2);
         const uint16_t lun_h  = (uint16_t)(7 * 2);            /* 14 */
         const uint16_t lun_x  = (uint16_t)(400 - 4 - lun_w);
