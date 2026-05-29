@@ -83,7 +83,7 @@ Section Cross References
     main.o(.text.main) refers to __2snprintf.o(.text) for __2snprintf
     main.o(.text.main) refers to main.o(.text.render_screen) for render_screen
     main.o(.text.main) refers to stm32l4xx_hal.o(.text.HAL_SuspendTick) for HAL_SuspendTick
-    main.o(.text.main) refers to stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_EnterSTOP2Mode) for HAL_PWREx_EnterSTOP2Mode
+    main.o(.text.main) refers to stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_EnterSTOP1Mode) for HAL_PWREx_EnterSTOP1Mode
     main.o(.text.main) refers to rt_memclr_w.o(.text) for __aeabi_memclr4
     main.o(.text.main) refers to stm32l4xx_hal_pwr.o(.text.HAL_PWR_EnableBkUpAccess) for HAL_PWR_EnableBkUpAccess
     main.o(.text.main) refers to stm32l4xx_hal_rcc.o(.text.HAL_RCC_OscConfig) for HAL_RCC_OscConfig
@@ -2506,8 +2506,8 @@ Removing Unused input sections from the image.
     Removing stm32l4xx_hal_pwr_ex.o(.ARM.exidx.text.HAL_PWREx_DisableLowPowerRunMode), (8 bytes).
     Removing stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_EnterSTOP0Mode), (54 bytes).
     Removing stm32l4xx_hal_pwr_ex.o(.ARM.exidx.text.HAL_PWREx_EnterSTOP0Mode), (8 bytes).
-    Removing stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_EnterSTOP1Mode), (64 bytes).
     Removing stm32l4xx_hal_pwr_ex.o(.ARM.exidx.text.HAL_PWREx_EnterSTOP1Mode), (8 bytes).
+    Removing stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_EnterSTOP2Mode), (64 bytes).
     Removing stm32l4xx_hal_pwr_ex.o(.ARM.exidx.text.HAL_PWREx_EnterSTOP2Mode), (8 bytes).
     Removing stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_EnterSHUTDOWNMode), (38 bytes).
     Removing stm32l4xx_hal_pwr_ex.o(.ARM.exidx.text.HAL_PWREx_EnterSHUTDOWNMode), (8 bytes).
@@ -2964,7 +2964,7 @@ Image Symbol Table
     [Anonymous Symbol]                       0x0800235c   Section        0  stm32l4xx_hal_cortex.o(.text.HAL_NVIC_SetPriority)
     [Anonymous Symbol]                       0x080023b4   Section        0  stm32l4xx_hal_cortex.o(.text.HAL_NVIC_SetPriorityGrouping)
     [Anonymous Symbol]                       0x080023d4   Section        0  stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_ControlVoltageScaling)
-    [Anonymous Symbol]                       0x08002460   Section        0  stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_EnterSTOP2Mode)
+    [Anonymous Symbol]                       0x08002460   Section        0  stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_EnterSTOP1Mode)
     [Anonymous Symbol]                       0x080024a0   Section        0  stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_GetVoltageRange)
     [Anonymous Symbol]                       0x080024b0   Section        0  stm32l4xx_hal_pwr.o(.text.HAL_PWR_EnableBkUpAccess)
     [Anonymous Symbol]                       0x080024c4   Section        0  stm32l4xx_hal_rcc_ex.o(.text.HAL_RCCEx_PeriphCLKConfig)
@@ -3398,7 +3398,7 @@ Image Symbol Table
     HAL_NVIC_SetPriority                     0x0800235d   Thumb Code    86  stm32l4xx_hal_cortex.o(.text.HAL_NVIC_SetPriority)
     HAL_NVIC_SetPriorityGrouping             0x080023b5   Thumb Code    32  stm32l4xx_hal_cortex.o(.text.HAL_NVIC_SetPriorityGrouping)
     HAL_PWREx_ControlVoltageScaling          0x080023d5   Thumb Code   140  stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_ControlVoltageScaling)
-    HAL_PWREx_EnterSTOP2Mode                 0x08002461   Thumb Code    64  stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_EnterSTOP2Mode)
+    HAL_PWREx_EnterSTOP1Mode                 0x08002461   Thumb Code    64  stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_EnterSTOP1Mode)
     HAL_PWREx_GetVoltageRange                0x080024a1   Thumb Code    16  stm32l4xx_hal_pwr_ex.o(.text.HAL_PWREx_GetVoltageRange)
     HAL_PWR_EnableBkUpAccess                 0x080024b1   Thumb Code    18  stm32l4xx_hal_pwr.o(.text.HAL_PWR_EnableBkUpAccess)
     HAL_RCCEx_PeriphCLKConfig                0x080024c5   Thumb Code   744  stm32l4xx_hal_rcc_ex.o(.text.HAL_RCCEx_PeriphCLKConfig)
@@ -3651,7 +3651,7 @@ Memory Map of the image
     0x080023b2   0x080023b2   0x00000002   PAD
     0x080023b4   0x080023b4   0x00000020   Code   RO         1268    .text.HAL_NVIC_SetPriorityGrouping  stm32l4xx_hal_cortex.o
     0x080023d4   0x080023d4   0x0000008c   Code   RO         1052    .text.HAL_PWREx_ControlVoltageScaling  stm32l4xx_hal_pwr_ex.o
-    0x08002460   0x08002460   0x00000040   Code   RO         1106    .text.HAL_PWREx_EnterSTOP2Mode  stm32l4xx_hal_pwr_ex.o
+    0x08002460   0x08002460   0x00000040   Code   RO         1104    .text.HAL_PWREx_EnterSTOP1Mode  stm32l4xx_hal_pwr_ex.o
     0x080024a0   0x080024a0   0x00000010   Code   RO         1050    .text.HAL_PWREx_GetVoltageRange  stm32l4xx_hal_pwr_ex.o
     0x080024b0   0x080024b0   0x00000012   Code   RO         1012    .text.HAL_PWR_EnableBkUpAccess  stm32l4xx_hal_pwr.o
     0x080024c2   0x080024c2   0x00000002   PAD
