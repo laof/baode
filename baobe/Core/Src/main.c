@@ -98,7 +98,8 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
                           int16_t temp_x10, uint16_t rh_x10,
                           uint8_t esp_online, uint8_t wifi_up,
                           int8_t w_code, int8_t w_temp_c,
-                          uint8_t bat_bars);
+                          uint8_t bat_bars,
+                          uint32_t weather_age_s, uint32_t weather_cycle_s);
 static void MX_RTC_Init(void);
 static void rtc_set_wakeup_seconds(uint32_t s);
 static void rtc_read_into_globals(void);
@@ -334,10 +335,12 @@ int main(void)
                            ((g_uptime_s - g_esp_last_seen_ms) < 60U);
       int8_t  w_code     = (g_w_last_seen_ms != 0) ? g_w_code   : (int8_t)-1;
       int8_t  w_temp_c   = (g_w_last_seen_ms != 0) ? g_w_temp_c : (int8_t)0;
+      uint32_t weather_age = (g_w_last_seen_ms != 0) ? (g_uptime_s - g_w_last_seen_ms) : ESP_CYCLE_S;
       /* ST7305 是双稳态屏，IC 自身常态待机 ~30µA，开 SLPIN 需 120ms 唤醒 delay
          反而让平均功耗变高。这里不进 sleep，直接刷屏。 */
       render_screen(g_date, g_hh, g_mm, g_ss, last_temp_x10, last_rh_x10,
-                    esp_online, g_wifi_up, w_code, w_temp_c, last_bat_bars);
+                    esp_online, g_wifi_up, w_code, w_temp_c, last_bat_bars,
+                    weather_age, ESP_CYCLE_S);
     }
 
     /* 重新挂上 UART 接收（Stop 唤醒后中断链路可能需要重新 arm） */
@@ -1002,9 +1005,13 @@ static void draw_mini_calendar(int year, int month, int today, uint16_t x, uint1
       fill_rect(cx,           cy,           1, 6, ST7305_COLOR_BLACK);
       fill_rect((uint16_t)(cx + 5), cy,     1, 6, ST7305_COLOR_BLACK);
     }
+    else if (d == today)
+    {
+      /* 今天：空白，不绘 */
+    }
     else
     {
-      /* 实心（今天 + 未来） */
+      /* 未来：实心 */
       fill_rect(cx, cy, 6, 6, ST7305_COLOR_BLACK);
     }
   }
@@ -1014,7 +1021,8 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
                           int16_t temp_x10, uint16_t rh_x10,
                           uint8_t esp_online, uint8_t wifi_up,
                           int8_t w_code, int8_t w_temp_c,
-                          uint8_t bat_bars)
+                          uint8_t bat_bars,
+                          uint32_t weather_age_s, uint32_t weather_cycle_s)
 {
   char time_str[16];
   char temp_str[16];
@@ -1053,8 +1061,8 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
            dew_x10 < 0 ? "-" : "", dew_abs / 10, dew_abs % 10);
 
   /* 三日预报：今天来自 ESP 真实数据，明/后天暂用假数据占位（不动 ESP 协议） */
-  int8_t fc_code[3] = { w_code,   1, 3 };       /* +1 多云, +2 雨 */
-  int8_t fc_temp[3] = { w_temp_c, 24, 19 };
+  int8_t fc_code[7] = { w_code,   1, 3, 2, 0, 1, 2 };
+  int8_t fc_temp[7] = { w_temp_c, 24, 19, 21, 28, 25, 22 };
   if (w_code < 0) { fc_code[0] = 0; fc_temp[0] = 22; }  /* 未收到时今天给个占位 */
 
   st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
@@ -1102,34 +1110,82 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   /* 分隔线 2：露点与天气之间 */
   fill_rect(0, 106, 400, 1, ST7305_COLOR_BLACK);
 
-  /* ===== 三日天气 y=116..230：3 列等宽，每列 icon 上 / 温度下 ===== */
-  for (uint8_t i = 0; i < 3; i++)
+  /* ===== 七日天气 y=116..265：7 列等宽（cell=57），每列 顶部日期/中间图标/底部温度 ===== */
   {
-    if (fc_code[i] < 0) continue;
-    const uint16_t cell_w = 133;
-    uint16_t cell_x = (uint16_t)(i * cell_w);
-    /* 天气图标 s=2 → 56×44 */
-    uint16_t icon_x = (uint16_t)(cell_x + (cell_w - 56) / 2);
-    draw_icon_weather(icon_x, 122, 2, fc_code[i]);
-    /* 温度 s=3，居中：最长 "-99C" 4 字 → 4*6*3=72 宽 */
-    char ts[8];
-    snprintf(ts, sizeof(ts), "%dC", (int)fc_temp[i]);
-    uint16_t tw = (uint16_t)(strlen(ts) * 6 * 3);
-    uint16_t tx = (uint16_t)(cell_x + (cell_w - tw) / 2);
-    st7305_draw_string(&g_lcd, tx, 200, ts, ST7305_COLOR_BLACK, 3);
+    int gy0 = 0, gmo0 = 0, gda0 = 0;
+    if (sscanf(date, "%d-%d-%d", &gy0, &gmo0, &gda0) != 3)
+    {
+      gy0 = 2026; gmo0 = 1; gda0 = 1;
+    }
+    int dy = gy0, dm = gmo0, dd = gda0;
+    const uint16_t cell_w = 57;
+    for (uint8_t i = 0; i < 7; i++)
+    {
+      if (fc_code[i] < 0) { /* 仍然推进日期，保持列对齐 */ }
+      uint16_t cell_x = (uint16_t)(i * cell_w);
+
+      /* 顶部日期标签 s=2，"DD" 1-2 位 */
+      char ds[4];
+      snprintf(ds, sizeof(ds), "%d", dd);
+      uint16_t dw = (uint16_t)(strlen(ds) * 6 * 2);
+      uint16_t dx = (uint16_t)(cell_x + (cell_w - dw) / 2);
+      st7305_draw_string(&g_lcd, dx, 122, ds, ST7305_COLOR_BLACK, 2);
+
+      if (fc_code[i] >= 0)
+      {
+        /* 天气图标 s=1 → 28×22 */
+        uint16_t icon_x = (uint16_t)(cell_x + (cell_w - 28) / 2);
+        draw_icon_weather(icon_x, 158, 1, fc_code[i]);
+
+        /* 温度 s=2，居中：最长 "-99C" 4 字 → 4*6*2=48 宽 */
+        char ts[8];
+        snprintf(ts, sizeof(ts), "%dC", (int)fc_temp[i]);
+        uint16_t tw = (uint16_t)(strlen(ts) * 6 * 2);
+        uint16_t tx = (uint16_t)(cell_x + (cell_w - tw) / 2);
+        st7305_draw_string(&g_lcd, tx, 192, ts, ST7305_COLOR_BLACK, 2);
+      }
+
+      /* 推进到下一天 */
+      dd++;
+      if (dd > days_in_month(dy, dm))
+      {
+        dd = 1;
+        dm++;
+        if (dm > 12) { dm = 1; dy++; }
+      }
+    }
   }
 
-  /* 分隔线 3：天气与底部之间 */
-  fill_rect(0, 250, 400, 1, ST7305_COLOR_BLACK);
+  /* ===== 倒计时进度条 y=216..221：刚刷新天气=100%，与 ESP 3h 周期同频 ===== */
+  {
+    /* 剩余比例 = 1 - age/cycle，age=0 → 100% 满，age>=cycle → 0% */
+    uint32_t age   = weather_age_s;
+    uint32_t cyc   = (weather_cycle_s == 0) ? 1U : weather_cycle_s;
+    uint32_t remain = (age >= cyc) ? 0U : (cyc - age);
+    /* 内部宽度 398（去掉左右 1px 边框） */
+    uint32_t inner_w = (398UL * remain) / cyc;
+    /* 外框 400×6，1px 边 */
+    fill_rect(0,   216, 400, 1, ST7305_COLOR_BLACK);
+    fill_rect(0,   221, 400, 1, ST7305_COLOR_BLACK);
+    fill_rect(0,   216, 1,   6, ST7305_COLOR_BLACK);
+    fill_rect(399, 216, 1,   6, ST7305_COLOR_BLACK);
+    /* 内部填充 */
+    if (inner_w > 0)
+    {
+      fill_rect(1, 217, (uint16_t)inner_w, 4, ST7305_COLOR_BLACK);
+    }
+  }
 
-  /* ===== 底部 y=260..286：全部 s=2，与顶部日期时间同字号 ===== */
-  /* 三段平均分布：左 T 室内温度 · 中 H 湿度 · 右 月亮 + 农历 */
-  /* T:xx.xC s=2：最长 "T:-99.9C" 8 字 → 8*6*2=96 宽 */
-  st7305_draw_string(&g_lcd, 8, 267, temp_str, ST7305_COLOR_BLACK, 2);
-  /* H 居中：最长 "H:99.9%" 7 字 → 7*6*2=84 宽，中心 x=200 → 起点 158 */
+  /* 分隔线 3：进度条与底部之间 */
+  fill_rect(0, 270, 400, 1, ST7305_COLOR_BLACK);
+
+  /* ===== 底部 y=276..290（h=14，与顶部 s=2 行同高） ===== */
+  /* T:xx.xC s=2 左对齐 */
+  st7305_draw_string(&g_lcd, 8, 276, temp_str, ST7305_COLOR_BLACK, 2);
+  /* H 居中：最长 "H:99.9%" 7 字 → 7*6*2=84 宽，中心 x=200 */
   {
     uint16_t hum_w = (uint16_t)(strlen(hum_str) * 6 * 2);
-    st7305_draw_string(&g_lcd, (uint16_t)(200 - hum_w / 2), 267, hum_str, ST7305_COLOR_BLACK, 2);
+    st7305_draw_string(&g_lcd, (uint16_t)(200 - hum_w / 2), 276, hum_str, ST7305_COLOR_BLACK, 2);
   }
   /* 月亮 + 农历 MM-DD，s=2，右对齐到 x=396 */
   {
@@ -1142,7 +1198,7 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
         (void)ly;
         char lstr[8];
         snprintf(lstr, sizeof(lstr), "%s%d-%d", leap ? "*" : "", lm, ld);
-        const uint16_t row_cy = 274;                          /* 底部行中线 */
+        const uint16_t row_cy = 283;                          /* 底部行中线 */
         const uint16_t lun_w  = (uint16_t)(strlen(lstr) * 6 * 2);
         const uint16_t lun_h  = (uint16_t)(7 * 2);            /* 14 */
         const uint16_t lun_x  = (uint16_t)(400 - 4 - lun_w);
