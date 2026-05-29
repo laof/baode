@@ -210,11 +210,15 @@ void st7305_draw_pixel(ST7305_t *lcd, uint16_t x, uint16_t y, uint8_t color) {
         return;
     }
 
-    uint16_t real_x = x / 4;
-    uint16_t real_y = y / 2;
+    /* 横屏 (W=400, H=300) → 原生 (W=300, H=400) 旋转 90° 顺时针 */
+    uint16_t nx = (uint16_t)(ST7305_NATIVE_WIDTH - 1U - y);
+    uint16_t ny = x;
+
+    uint16_t real_x = nx / 4;
+    uint16_t real_y = ny / 2;
     uint16_t index = real_y * 75 + real_x;
-    uint8_t one_two = (y % 2 == 0) ? 0 : 1;
-    uint8_t line_bit_4 = x % 4;
+    uint8_t one_two = (ny % 2 == 0) ? 0 : 1;
+    uint8_t line_bit_4 = nx % 4;
     uint8_t write_bit = 7 - (line_bit_4 * 2 + one_two);
 
     if (color) {

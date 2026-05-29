@@ -973,9 +973,7 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   char time_str[16];
   char temp_str[16];
   char hum_str[16];
-  char wtemp_str[8];
   char dew_str[16];
-  char dt_str[24];
 
   int16_t temp_abs = (temp_x10 < 0) ? (int16_t)(-temp_x10) : temp_x10;
 
@@ -1005,70 +1003,68 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   snprintf(temp_str, sizeof(temp_str), "T:%s%d.%dC",
            temp_x10 < 0 ? "-" : "", temp_abs / 10, temp_abs % 10);
   snprintf(hum_str,  sizeof(hum_str),  "H:%d.%d%%", rh_x10 / 10, rh_x10 % 10);
-  snprintf(wtemp_str, sizeof(wtemp_str), "%dC", (int)w_temp_c);
   snprintf(dew_str,  sizeof(dew_str),  "%s%d.%dC",
            dew_x10 < 0 ? "-" : "", dew_abs / 10, dew_abs % 10);
-  /* 底部去掉年份，避免与放大后的其他字号失调（保持整体字号梯度均衡） */
-  snprintf(dt_str, sizeof(dt_str), "%s %s", date + 5, time_str);
+
+  /* 三日预报：今天来自 ESP 真实数据，明/后天暂用假数据占位（不动 ESP 协议） */
+  int8_t fc_code[3] = { w_code,   1, 3 };       /* +1 多云, +2 雨 */
+  int8_t fc_temp[3] = { w_temp_c, 24, 19 };
+  if (w_code < 0) { fc_code[0] = 0; fc_temp[0] = 22; }  /* 未收到时今天给个占位 */
 
   st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
 
-  /* === 顶部左：电池图标（始终显示，与右侧图标共享中线 cy=16） === */
-  draw_icon_battery(4, (uint16_t)(16 - ICON_BAT_H / 2), bat_bars);
-
-  /* === 顶部右：WiFi + ESP 图标，两者共享同一垂直中心 (y=16) === */
+  /* ===== 顶部状态栏 y=0..24 ===== */
+  draw_icon_battery(4, 5, bat_bars);
   if (esp_online)
   {
-    /* 右对齐到屏宽 300，留 4px 边距；图标间留 4px 间隙 */
-    const uint16_t esp_x  = (uint16_t)(300 - 4 - ICON_ESP_W);                   /* 270 */
-    const uint16_t wifi_x = (uint16_t)(esp_x - 4 - ICON_WIFI_W);                /* 244 */
-    const uint16_t cy_top = 16;                                                 /* 顶部行共同中线 */
-    draw_icon_signal(wifi_x, (uint16_t)(cy_top - ICON_WIFI_H / 2), wifi_up);
-    draw_icon_esp(esp_x,     (uint16_t)(cy_top - ICON_ESP_H  / 2));
+    draw_icon_signal(38, 4, wifi_up);
+    draw_icon_esp(66, 1);
   }
+  /* 时间 HH:MM s=3：5*6*3=90 宽，右边距 4 → x=306, y=2 */
+  st7305_draw_string(&g_lcd, 306, 2, time_str, ST7305_COLOR_BLACK, 3);
+  /* 日期 YYYY-MM-DD s=2：10*6*2=120 宽，紧贴时间左侧留 10px → x=176, y=5 */
+  st7305_draw_string(&g_lcd, 176, 5, date, ST7305_COLOR_BLACK, 2);
 
-  /* === 露点行：3x 水滴(42×48) + size=5 大字(高=35)，共享中线 y = 62+24 = 86 === */
+  /* ===== 焦点 1：露点 y=32..96，s=6 ===== */
   if (dew_valid)
   {
-    const uint16_t drop_y    = 62;
-    const uint16_t drop_h    = 48;                       /* 16 * 3 */
-    const uint16_t cy_dew    = (uint16_t)(drop_y + drop_h / 2);  /* 86 */
-    const uint16_t dew_txt_h = (uint16_t)(7 * 5);        /* 35 */
-    const uint16_t dew_txt_y = (uint16_t)(cy_dew - dew_txt_h / 2); /* 69 */
-    draw_icon_drop(10, drop_y, 3);
-    st7305_draw_string(&g_lcd, 76, dew_txt_y, dew_str, ST7305_COLOR_BLACK, 5);
+    draw_icon_drop(8, 32, 4);                                /* 56×64，cy=64 */
+    /* s=6 文字：高=42，y=43 时中线 64 */
+    st7305_draw_string(&g_lcd, 80, 43, dew_str, ST7305_COLOR_BLACK, 6);
     if (dry)
     {
-      uint16_t dew_w = (uint16_t)(strlen(dew_str) * 6 * 5);
-      uint16_t bx = (uint16_t)(76 + dew_w + 14);
-      /* "!" 高度 = 28 + 6 间隙 + 5 点 = 39，居中到 cy_dew */
-      uint16_t by = (uint16_t)(cy_dew - 19);
-      fill_rect(bx, by,           5, 28, ST7305_COLOR_BLACK);
-      fill_rect(bx, (uint16_t)(by + 34), 5, 5,  ST7305_COLOR_BLACK);
+      uint16_t dew_w = (uint16_t)(strlen(dew_str) * 6 * 6);
+      uint16_t bx    = (uint16_t)(80 + dew_w + 14);
+      /* "!" 高度 = 28 + 6 间隙 + 5 点 = 39，居中到 cy=64 */
+      fill_rect(bx, 45,                5, 28, ST7305_COLOR_BLACK);
+      fill_rect(bx, (uint16_t)(45 + 34), 5, 5,  ST7305_COLOR_BLACK);
     }
   }
 
-  /* === 天气行：2x 图标(56×44) + size=4 温度(高=28)，共享中线 y = 140+22 = 162 === */
-  if (w_code >= 0)
+  /* ===== 焦点 2：湿度 y=104..168，s=6 ===== */
+  st7305_draw_string(&g_lcd, 8, 115, hum_str, ST7305_COLOR_BLACK, 6);
+
+  /* ===== 三日天气 y=176..258：3 列等宽，每列 icon 上 / 温度下 ===== */
+  for (uint8_t i = 0; i < 3; i++)
   {
-    const uint16_t wx        = 10;
-    const uint16_t wy        = 140;
-    const uint16_t wh        = 44;                       /* 22 * 2 */
-    const uint16_t cy_wx     = (uint16_t)(wy + wh / 2);  /* 162 */
-    const uint16_t wtxt_h    = (uint16_t)(7 * 4);        /* 28 */
-    const uint16_t wtxt_y    = (uint16_t)(cy_wx - wtxt_h / 2);   /* 148 */
-    draw_icon_weather(wx, wy, 2, w_code);
-    st7305_draw_string(&g_lcd, 90, wtxt_y, wtemp_str, ST7305_COLOR_BLACK, 4);
+    if (fc_code[i] < 0) continue;
+    const uint16_t cell_w = 133;
+    uint16_t cell_x = (uint16_t)(i * cell_w);
+    /* 天气图标 s=2 → 56×44 */
+    uint16_t icon_x = (uint16_t)(cell_x + (cell_w - 56) / 2);
+    draw_icon_weather(icon_x, 178, 2, fc_code[i]);
+    /* 温度 s=3，居中：最长 "-99C" 4 字 → 4*6*3=72 宽 */
+    char ts[8];
+    snprintf(ts, sizeof(ts), "%dC", (int)fc_temp[i]);
+    uint16_t tw = (uint16_t)(strlen(ts) * 6 * 3);
+    uint16_t tx = (uint16_t)(cell_x + (cell_w - tw) / 2);
+    st7305_draw_string(&g_lcd, tx, 226, ts, ST7305_COLOR_BLACK, 3);
   }
 
-  /* === 室内温湿度：size=4，与天气温度同字号 === */
-  st7305_draw_string(&g_lcd, 10, 230, temp_str, ST7305_COLOR_BLACK, 4);
-  st7305_draw_string(&g_lcd, 10, 280, hum_str,  ST7305_COLOR_BLACK, 4);
-
-  /* 底部左：MM-DD HH:MM（去年份），size=2，与右侧农历同字号 */
-  st7305_draw_string(&g_lcd, 10, 373, dt_str, ST7305_COLOR_BLACK, 2);
-
-  /* 底部右：月亮图标 + 农历 MM-DD（size=2），与公历共享中线 y=380 */
+  /* ===== 底部 y=262..296 ===== */
+  /* 左：室内温度 T:xx.xC，s=4（高 28），y=265 */
+  st7305_draw_string(&g_lcd, 8, 265, temp_str, ST7305_COLOR_BLACK, 4);
+  /* 右：月亮 + 农历 MM-DD，s=3，右对齐到 x=396 */
   {
     int gy = 0, gmo = 0, gda = 0;
     if (sscanf(date, "%d-%d-%d", &gy, &gmo, &gda) == 3)
@@ -1079,17 +1075,15 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
         (void)ly;
         char lstr[8];
         snprintf(lstr, sizeof(lstr), "%s%d-%d", leap ? "*" : "", lm, ld);
-        const uint16_t row_cy   = 380;                       /* 与公历日期同中线 */
-        const uint16_t lun_scale = 2;
-        const uint16_t lun_w    = (uint16_t)(strlen(lstr) * 6 * lun_scale);
-        const uint16_t lun_h    = (uint16_t)(7 * lun_scale);  /* 14 */
-        const uint16_t gap      = 6;
-        const uint16_t lun_x    = (uint16_t)(300 - 4 - lun_w);
-        const uint16_t lun_y    = (uint16_t)(row_cy - lun_h / 2);
-        const uint16_t moon_x   = (uint16_t)(lun_x - gap - ICON_MOON_W);
-        const uint16_t moon_y   = (uint16_t)(row_cy - ICON_MOON_H / 2);
+        const uint16_t row_cy = 279;                         /* 底部行中线 */
+        const uint16_t lun_w  = (uint16_t)(strlen(lstr) * 6 * 3);
+        const uint16_t lun_h  = (uint16_t)(7 * 3);            /* 21 */
+        const uint16_t lun_x  = (uint16_t)(400 - 4 - lun_w);
+        const uint16_t lun_y  = (uint16_t)(row_cy - lun_h / 2);
+        const uint16_t moon_x = (uint16_t)(lun_x - 6 - ICON_MOON_W);
+        const uint16_t moon_y = (uint16_t)(row_cy - ICON_MOON_H / 2);
         draw_icon_moon(moon_x, moon_y);
-        st7305_draw_string(&g_lcd, lun_x, lun_y, lstr, ST7305_COLOR_BLACK, lun_scale);
+        st7305_draw_string(&g_lcd, lun_x, lun_y, lstr, ST7305_COLOR_BLACK, 3);
       }
     }
   }
