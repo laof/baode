@@ -1007,13 +1007,11 @@ static void draw_mini_calendar(int year, int month, int today, uint16_t x, uint1
     }
     else if (d == today)
     {
-      /* 今天：田字（外框 + 中间十字） */
-      fill_rect(cx,                 cy,                 6, 1, ST7305_COLOR_BLACK);
-      fill_rect(cx,                 (uint16_t)(cy + 5), 6, 1, ST7305_COLOR_BLACK);
-      fill_rect(cx,                 cy,                 1, 6, ST7305_COLOR_BLACK);
-      fill_rect((uint16_t)(cx + 5), cy,                 1, 6, ST7305_COLOR_BLACK);
-      fill_rect(cx,                 (uint16_t)(cy + 2), 6, 1, ST7305_COLOR_BLACK);
-      fill_rect((uint16_t)(cx + 2), cy,                 1, 6, ST7305_COLOR_BLACK);
+      /* 今天：更小的空心方格（4×4，居中） */
+      fill_rect((uint16_t)(cx + 1), (uint16_t)(cy + 1), 4, 1, ST7305_COLOR_BLACK);
+      fill_rect((uint16_t)(cx + 1), (uint16_t)(cy + 4), 4, 1, ST7305_COLOR_BLACK);
+      fill_rect((uint16_t)(cx + 1), (uint16_t)(cy + 1), 1, 4, ST7305_COLOR_BLACK);
+      fill_rect((uint16_t)(cx + 4), (uint16_t)(cy + 1), 1, 4, ST7305_COLOR_BLACK);
     }
     else
     {
@@ -1066,9 +1064,9 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   snprintf(dew_str,  sizeof(dew_str),  "%s%d.%d",
            dew_x10 < 0 ? "-" : "", dew_abs / 10, dew_abs % 10);
 
-  /* 三日预报：今天来自 ESP 真实数据，明/后天暂用假数据占位（不动 ESP 协议） */
-  int8_t fc_code[7] = { w_code,   1, 3, 2, 0, 1, 2 };
-  int8_t fc_temp[7] = { w_temp_c, 24, 19, 21, 28, 25, 22 };
+  /* 六日预报：今天来自 ESP 真实数据，后 5 天暂用假数据占位（不动 ESP 协议） */
+  int8_t fc_code[6] = { w_code,   1, 3, 2, 0, 1 };
+  int8_t fc_temp[6] = { w_temp_c, 24, 19, 21, 28, 25 };
   if (w_code < 0) { fc_code[0] = 0; fc_temp[0] = 22; }  /* 未收到时今天给个占位 */
 
   st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
@@ -1125,16 +1123,16 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
     if (solid_w > 400U) solid_w = 400U;
     if (solid_w > 0)
     {
-      fill_rect(0, 108, (uint16_t)solid_w, 2, ST7305_COLOR_BLACK);
+      fill_rect(0, 108, (uint16_t)solid_w, 1, ST7305_COLOR_BLACK);
     }
     for (uint16_t x = (uint16_t)solid_w; x < 400; x += 4)
     {
       uint16_t seg = (uint16_t)((x + 2 > 400) ? (400 - x) : 2);
-      fill_rect(x, 108, seg, 2, ST7305_COLOR_BLACK);
+      fill_rect(x, 108, seg, 1, ST7305_COLOR_BLACK);
     }
   }
 
-  /* ===== 七日天气 y=116..265：7 列等宽（cell=57），每列 顶部日期/中间图标/底部温度 ===== */
+  /* ===== 六日天气 y=116..265：今天双宽（114px）+ 5 天等宽（57px） ===== */
   {
     int gy0 = 0, gmo0 = 0, gda0 = 0;
     if (sscanf(date, "%d-%d-%d", &gy0, &gmo0, &gda0) != 3)
@@ -1142,13 +1140,13 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
       gy0 = 2026; gmo0 = 1; gda0 = 1;
     }
     int dy = gy0, dm = gmo0, dd = gda0;
-    const uint16_t cell_w = 57;
-    for (uint8_t i = 0; i < 7; i++)
+    for (uint8_t i = 0; i < 6; i++)
     {
-      if (fc_code[i] < 0) { /* 仍然推进日期，保持列对齐 */ }
-      uint16_t cell_x = (uint16_t)(i * cell_w);
+      /* 今天占 114，其他各 57；总宽 114+57*5=399 */
+      uint16_t cell_x = (i == 0) ? 0 : (uint16_t)(114 + (i - 1) * 57);
+      uint16_t cell_w = (i == 0) ? 114 : 57;
 
-      /* 顶部日期标签 s=2，"DD" 1-2 位；首列（今天）不画 */
+      /* 顶部日期标签 s=2；首列（今天）不画 */
       if (i > 0)
       {
         char ds[4];
@@ -1160,16 +1158,28 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
 
       if (fc_code[i] >= 0)
       {
-        /* 天气图标 s=1 → 28×22 */
-        uint16_t icon_x = (uint16_t)(cell_x + (cell_w - 28) / 2);
-        draw_icon_weather(icon_x, 158, 1, fc_code[i]);
-
-        /* 温度 s=2，居中：最长 "-99C" 4 字 → 4*6*2=48 宽 */
-        char ts[8];
-        snprintf(ts, sizeof(ts), "%dC", (int)fc_temp[i]);
-        uint16_t tw = (uint16_t)(strlen(ts) * 6 * 2);
-        uint16_t tx = (uint16_t)(cell_x + (cell_w - tw) / 2);
-        st7305_draw_string(&g_lcd, tx, 192, ts, ST7305_COLOR_BLACK, 2);
+        if (i == 0)
+        {
+          /* 今天：图标 s=2 → 56×44，温度 s=3 */
+          uint16_t icon_x = (uint16_t)(cell_x + (cell_w - 56) / 2);
+          draw_icon_weather(icon_x, 142, 2, fc_code[i]);
+          char ts[8];
+          snprintf(ts, sizeof(ts), "%dC", (int)fc_temp[i]);
+          uint16_t tw = (uint16_t)(strlen(ts) * 6 * 3);
+          uint16_t tx = (uint16_t)(cell_x + (cell_w - tw) / 2);
+          st7305_draw_string(&g_lcd, tx, 196, ts, ST7305_COLOR_BLACK, 3);
+        }
+        else
+        {
+          /* 其他天：图标 s=1 → 28×22，温度 s=2 */
+          uint16_t icon_x = (uint16_t)(cell_x + (cell_w - 28) / 2);
+          draw_icon_weather(icon_x, 158, 1, fc_code[i]);
+          char ts[8];
+          snprintf(ts, sizeof(ts), "%dC", (int)fc_temp[i]);
+          uint16_t tw = (uint16_t)(strlen(ts) * 6 * 2);
+          uint16_t tx = (uint16_t)(cell_x + (cell_w - tw) / 2);
+          st7305_draw_string(&g_lcd, tx, 200, ts, ST7305_COLOR_BLACK, 2);
+        }
       }
 
       /* 推进到下一天 */
