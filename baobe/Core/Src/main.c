@@ -1007,7 +1007,13 @@ static void draw_mini_calendar(int year, int month, int today, uint16_t x, uint1
     }
     else if (d == today)
     {
-      /* 今天：空白，不绘 */
+      /* 今天：田字（外框 + 中间十字） */
+      fill_rect(cx,                 cy,                 6, 1, ST7305_COLOR_BLACK);
+      fill_rect(cx,                 (uint16_t)(cy + 5), 6, 1, ST7305_COLOR_BLACK);
+      fill_rect(cx,                 cy,                 1, 6, ST7305_COLOR_BLACK);
+      fill_rect((uint16_t)(cx + 5), cy,                 1, 6, ST7305_COLOR_BLACK);
+      fill_rect(cx,                 (uint16_t)(cy + 2), 6, 1, ST7305_COLOR_BLACK);
+      fill_rect((uint16_t)(cx + 2), cy,                 1, 6, ST7305_COLOR_BLACK);
     }
     else
     {
@@ -1057,7 +1063,7 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   snprintf(temp_str, sizeof(temp_str), "T:%s%d.%dC",
            temp_x10 < 0 ? "-" : "", temp_abs / 10, temp_abs % 10);
   snprintf(hum_str,  sizeof(hum_str),  "H:%d.%d%%", rh_x10 / 10, rh_x10 % 10);
-  snprintf(dew_str,  sizeof(dew_str),  "%s%d.%dC",
+  snprintf(dew_str,  sizeof(dew_str),  "%s%d.%d",
            dew_x10 < 0 ? "-" : "", dew_abs / 10, dew_abs % 10);
 
   /* 三日预报：今天来自 ESP 真实数据，明/后天暂用假数据占位（不动 ESP 协议） */
@@ -1082,15 +1088,18 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   /* 分隔线 1：顶部栏下方 */
   fill_rect(0, 26, 400, 1, ST7305_COLOR_BLACK);
 
-  /* ===== 焦点：露点 y=32..96，s=6（去图标，左对齐） + 右侧小日历 ===== */
+  /* ===== 焦点：露点 y=32..96，数字 s=6 + 单位 C s=2（与顶部同字号） + 右侧小日历 ===== */
   if (dew_valid)
   {
-    /* s=6 文字：高=42，y=43 时中线 64 */
+    /* s=6 数字：高=42，y=43 时中线 64 */
     st7305_draw_string(&g_lcd, 8, 43, dew_str, ST7305_COLOR_BLACK, 6);
+    uint16_t dew_num_w = (uint16_t)(strlen(dew_str) * 6 * 6);
+    /* "C" s=2 紧贴数字右侧，顶对齐（像上标） */
+    uint16_t c_x = (uint16_t)(8 + dew_num_w + 4);
+    st7305_draw_string(&g_lcd, c_x, 43, "C", ST7305_COLOR_BLACK, 2);
     if (dry)
     {
-      uint16_t dew_w = (uint16_t)(strlen(dew_str) * 6 * 6);
-      uint16_t bx    = (uint16_t)(8 + dew_w + 14);
+      uint16_t bx = (uint16_t)(c_x + 6 * 2 + 14);
       /* "!" 高度 = 28 + 6 间隙 + 5 点 = 39，居中到 cy=64 */
       fill_rect(bx, 45,                5, 28, ST7305_COLOR_BLACK);
       fill_rect(bx, (uint16_t)(45 + 34), 5, 5,  ST7305_COLOR_BLACK);
@@ -1107,8 +1116,23 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
     }
   }
 
-  /* 分隔线 2：露点与天气之间 */
-  fill_rect(0, 106, 400, 1, ST7305_COLOR_BLACK);
+  /* ===== 倒计时进度条 y=108..109：充当露点与天气间的分隔线；实线=剩余，虚线=已过 ===== */
+  {
+    uint32_t age   = weather_age_s;
+    uint32_t cyc   = (weather_cycle_s == 0) ? 1U : weather_cycle_s;
+    uint32_t remain = (age >= cyc) ? 0U : (cyc - age);
+    uint32_t solid_w = (400UL * remain) / cyc;
+    if (solid_w > 400U) solid_w = 400U;
+    if (solid_w > 0)
+    {
+      fill_rect(0, 108, (uint16_t)solid_w, 2, ST7305_COLOR_BLACK);
+    }
+    for (uint16_t x = (uint16_t)solid_w; x < 400; x += 4)
+    {
+      uint16_t seg = (uint16_t)((x + 2 > 400) ? (400 - x) : 2);
+      fill_rect(x, 108, seg, 2, ST7305_COLOR_BLACK);
+    }
+  }
 
   /* ===== 七日天气 y=116..265：7 列等宽（cell=57），每列 顶部日期/中间图标/底部温度 ===== */
   {
@@ -1124,12 +1148,15 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
       if (fc_code[i] < 0) { /* 仍然推进日期，保持列对齐 */ }
       uint16_t cell_x = (uint16_t)(i * cell_w);
 
-      /* 顶部日期标签 s=2，"DD" 1-2 位 */
-      char ds[4];
-      snprintf(ds, sizeof(ds), "%d", dd);
-      uint16_t dw = (uint16_t)(strlen(ds) * 6 * 2);
-      uint16_t dx = (uint16_t)(cell_x + (cell_w - dw) / 2);
-      st7305_draw_string(&g_lcd, dx, 122, ds, ST7305_COLOR_BLACK, 2);
+      /* 顶部日期标签 s=2，"DD" 1-2 位；首列（今天）不画 */
+      if (i > 0)
+      {
+        char ds[4];
+        snprintf(ds, sizeof(ds), "%d", dd);
+        uint16_t dw = (uint16_t)(strlen(ds) * 6 * 2);
+        uint16_t dx = (uint16_t)(cell_x + (cell_w - dw) / 2);
+        st7305_draw_string(&g_lcd, dx, 122, ds, ST7305_COLOR_BLACK, 2);
+      }
 
       if (fc_code[i] >= 0)
       {
@@ -1156,27 +1183,9 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
     }
   }
 
-  /* ===== 倒计时进度条 y=216..221：刚刷新天气=100%，与 ESP 3h 周期同频 ===== */
-  {
-    /* 剩余比例 = 1 - age/cycle，age=0 → 100% 满，age>=cycle → 0% */
-    uint32_t age   = weather_age_s;
-    uint32_t cyc   = (weather_cycle_s == 0) ? 1U : weather_cycle_s;
-    uint32_t remain = (age >= cyc) ? 0U : (cyc - age);
-    /* 内部宽度 398（去掉左右 1px 边框） */
-    uint32_t inner_w = (398UL * remain) / cyc;
-    /* 外框 400×6，1px 边 */
-    fill_rect(0,   216, 400, 1, ST7305_COLOR_BLACK);
-    fill_rect(0,   221, 400, 1, ST7305_COLOR_BLACK);
-    fill_rect(0,   216, 1,   6, ST7305_COLOR_BLACK);
-    fill_rect(399, 216, 1,   6, ST7305_COLOR_BLACK);
-    /* 内部填充 */
-    if (inner_w > 0)
-    {
-      fill_rect(1, 217, (uint16_t)inner_w, 4, ST7305_COLOR_BLACK);
-    }
-  }
+  /* ===== 倒计时进度条已上移至 y=108，此处不重复 ===== */
 
-  /* 分隔线 3：进度条与底部之间 */
+  /* 分隔线 3：天气与底部之间 */
   fill_rect(0, 270, 400, 1, ST7305_COLOR_BLACK);
 
   /* ===== 底部 y=276..290（h=14，与顶部 s=2 行同高） ===== */
