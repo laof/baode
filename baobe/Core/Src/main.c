@@ -803,47 +803,32 @@ static void draw_icon_weather(uint16_t x, uint16_t y, uint8_t s, int8_t code)
   }
 }
 
-/* 经典 WiFi 图标 22×17：底部倒三角 + 3 道完整同心半圆弧。未联网时整块不画。 */
+/* 信号塔 + 3 根信号条图标 22×17：左侧塔架，右侧从低到高的 3 根条。未联网不画。 */
 #define ICON_WIFI_W 22
 #define ICON_WIFI_H 17
 static void draw_icon_signal(uint16_t x, uint16_t y, uint8_t has_signal)
 {
   if (!has_signal) return;
 
-  const int cx = 11;   /* 弧心 x（图标本地坐标） */
-  const int cy = 13;   /* 弧心 y：把下面留 3 行给倒三角 */
+  /* 塔架 x=0..7：顶部横条 + 两斜腿 + 中间竖杆 */
+  /* 顶部横条 8 宽 2 高 */
+  fill_rect(x,                  y,                  8, 2, ST7305_COLOR_BLACK);
+  /* 两斜腿：从两上角收进到中央（3,5）（x=0..3, y=2..5） */
+  st7305_draw_pixel(&g_lcd, (uint16_t)(x + 1), (uint16_t)(y + 2), ST7305_COLOR_BLACK);
+  st7305_draw_pixel(&g_lcd, (uint16_t)(x + 2), (uint16_t)(y + 3), ST7305_COLOR_BLACK);
+  st7305_draw_pixel(&g_lcd, (uint16_t)(x + 2), (uint16_t)(y + 4), ST7305_COLOR_BLACK);
+  st7305_draw_pixel(&g_lcd, (uint16_t)(x + 3), (uint16_t)(y + 5), ST7305_COLOR_BLACK);
+  st7305_draw_pixel(&g_lcd, (uint16_t)(x + 6), (uint16_t)(y + 2), ST7305_COLOR_BLACK);
+  st7305_draw_pixel(&g_lcd, (uint16_t)(x + 5), (uint16_t)(y + 3), ST7305_COLOR_BLACK);
+  st7305_draw_pixel(&g_lcd, (uint16_t)(x + 5), (uint16_t)(y + 4), ST7305_COLOR_BLACK);
+  st7305_draw_pixel(&g_lcd, (uint16_t)(x + 4), (uint16_t)(y + 5), ST7305_COLOR_BLACK);
+  /* 中央竖杆 2px 宽从 y=2 贯穿到底 y=16 */
+  fill_rect((uint16_t)(x + 3), (uint16_t)(y + 2), 2, 15, ST7305_COLOR_BLACK);
 
-  /* 3 道圆弧的外/内半径平方，厚度 2px，弧间留 1px 间隙 */
-  const int r_out2[3] = { 11*11, 8*8, 5*5 };
-  const int r_in2 [3] = { 10*10, 7*7, 4*4 };
-
-  /* 半圆裁掉两侧，仅保留中间约 100° 的弧段（贴近图片观感）：
-     dy >= |dx| * tan(40°) ≈ |dx| * 0.839 → 整数判定 6*dy >= 5*|dx| */
-  for (int py = 0; py <= cy; py++)
-  {
-    int dy  = cy - py;
-    int dy2 = dy * dy;
-    for (int px = 0; px < ICON_WIFI_W; px++)
-    {
-      int dx  = px - cx;
-      int adx = dx < 0 ? -dx : dx;
-      if (6 * dy < 5 * adx) continue;
-      int d2 = dx * dx + dy2;
-      for (int i = 0; i < 3; i++)
-      {
-        if (d2 <= r_out2[i] && d2 >= r_in2[i])
-        {
-          st7305_draw_pixel(&g_lcd, (uint16_t)(x + px), (uint16_t)(y + py), ST7305_COLOR_BLACK);
-          break;
-        }
-      }
-    }
-  }
-
-  /* 底部倒三角（指向下方），与最内弧之间留 1 行空隙 */
-  fill_rect((uint16_t)(x + cx - 2), (uint16_t)(y + 14), 5, 1, ST7305_COLOR_BLACK);
-  fill_rect((uint16_t)(x + cx - 1), (uint16_t)(y + 15), 3, 1, ST7305_COLOR_BLACK);
-  fill_rect((uint16_t)(x + cx),     (uint16_t)(y + 16), 1, 1, ST7305_COLOR_BLACK);
+  /* 3 根信号条（从短到长），均 2px 宽，间距 2px，底对齐到 y=16 */
+  fill_rect((uint16_t)(x + 10), (uint16_t)(y + 12), 2, 5,  ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + 14), (uint16_t)(y + 7),  2, 10, ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + 18), (uint16_t)(y + 2),  2, 15, ST7305_COLOR_BLACK);
 }
 
 
@@ -1123,8 +1108,8 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   draw_icon_battery(4, 5, bat_bars);
   if (esp_online)
   {
-    draw_icon_signal(38, 4, wifi_up);
-    draw_icon_esp(66, 1);
+    draw_icon_esp(38, 1);
+    draw_icon_signal(68, 4, wifi_up);
   }
   /* 时间 HH:MM s=2：5*6*2=60 宽，右边距 4 → x=336, y=5 */
   st7305_draw_string(&g_lcd, 336, 5, time_str, ST7305_COLOR_BLACK, 2);
@@ -1134,35 +1119,35 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   /* 分隔线 1：顶部栏下方 */
   fill_rect(0, 26, 400, 1, ST7305_COLOR_BLACK);
 
-  /* ===== 焦点：露点区 y=27..203（高 176），字体保持 84h 上下留白居中 → 字体 y=73..157 ===== */
+  /* ===== 焦点：露点区 y=27..160（高 133），字体 84h 上下留白居中 → 字体 y=51..135 ===== */
   if (dew_valid)
   {
     const uint16_t SW = 44, SH = 84, ST = 5, SG = 7;
-    uint16_t dew_x = 8, dew_y = 73;
+    uint16_t dew_x = 8, dew_y = 51;
     uint16_t draw_w = draw_seg_string(dew_x, dew_y, SW, SH, ST, SG, dew_str);
     /* "C" s=5贴右侧顶部 */
     uint16_t c_x = (uint16_t)(dew_x + draw_w + 8);
     st7305_draw_string(&g_lcd, c_x, dew_y, "C", ST7305_COLOR_BLACK, 5);
     if (dry)
     {
-      /* "!" 与露点同高居中：主条 6×54 + 8 间隙 + 底点 6×6，cy=115 */
+      /* "!" 与露点同高居中：主条 6×54 + 8 间隙 + 底点 6×6，cy=93 */
       uint16_t bx = (uint16_t)(c_x + 6 * 5 + 18);
-      fill_rect(bx, 81, 6, 54, ST7305_COLOR_BLACK);
-      fill_rect(bx, 143, 6, 6, ST7305_COLOR_BLACK);
+      fill_rect(bx, 59,  6, 54, ST7305_COLOR_BLACK);
+      fill_rect(bx, 121, 6, 6,  ST7305_COLOR_BLACK);
     }
   }
-  /* 右侧小日历：与露点字体行内居中（cy=115 → y=95） */
+  /* 右侧小日历：与露点字体行内居中（cy=93 → y=73） */
   {
     int gy = 0, gmo = 0, gda = 0;
     if (sscanf(date, "%d-%d-%d", &gy, &gmo, &gda) == 3)
     {
       draw_mini_calendar(gy, gmo, gda,
                          (uint16_t)(400 - 4 - MINI_CAL_W),
-                         (uint16_t)(115 - MINI_CAL_H / 2));
+                         (uint16_t)(93 - MINI_CAL_H / 2));
     }
   }
 
-  /* ===== 倒计时进度条 y=204：露点区加高后下移贴近天气区 ===== */
+  /* ===== 倒计时进度条 y=165：露点与天气区间的分隔线 ===== */
   {
     uint32_t age   = weather_age_s;
     uint32_t cyc   = (weather_cycle_s == 0) ? 1U : weather_cycle_s;
@@ -1171,12 +1156,12 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
     if (solid_w > 400U) solid_w = 400U;
     if (solid_w > 0)
     {
-      fill_rect(0, 204, (uint16_t)solid_w, 1, ST7305_COLOR_BLACK);
+      fill_rect(0, 165, (uint16_t)solid_w, 1, ST7305_COLOR_BLACK);
     }
     for (uint16_t x = (uint16_t)solid_w; x < 400; x += 4)
     {
       uint16_t seg = (uint16_t)((x + 2 > 400) ? (400 - x) : 2);
-      fill_rect(x, 204, seg, 1, ST7305_COLOR_BLACK);
+      fill_rect(x, 165, seg, 1, ST7305_COLOR_BLACK);
     }
   }
 
@@ -1201,19 +1186,19 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
         snprintf(ds, sizeof(ds), "%d", dd);
         uint16_t dw = (uint16_t)(strlen(ds) * 6 * 2);
         uint16_t dx = (uint16_t)(cell_x + (cell_w - dw) / 2);
-        st7305_draw_string(&g_lcd, dx, 212, ds, ST7305_COLOR_BLACK, 2);
+        st7305_draw_string(&g_lcd, dx, 180, ds, ST7305_COLOR_BLACK, 2);
       }
 
       if (fc_code[i] >= 0)
       {
         /* 所有列统一：图标 s=1（28×22），温度 s=2；今天靠双倍宽留白突出 */
         uint16_t icon_x = (uint16_t)(cell_x + (cell_w - 28) / 2);
-        draw_icon_weather(icon_x, 230, 1, fc_code[i]);
+        draw_icon_weather(icon_x, 212, 1, fc_code[i]);
         char ts[8];
         snprintf(ts, sizeof(ts), "%dC", (int)fc_temp[i]);
         uint16_t tw = (uint16_t)(strlen(ts) * 6 * 2);
         uint16_t tx = (uint16_t)(cell_x + (cell_w - tw) / 2);
-        st7305_draw_string(&g_lcd, tx, 254, ts, ST7305_COLOR_BLACK, 2);
+        st7305_draw_string(&g_lcd, tx, 250, ts, ST7305_COLOR_BLACK, 2);
       }
 
       /* 推进到下一天 */
