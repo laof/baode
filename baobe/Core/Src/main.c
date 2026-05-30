@@ -335,12 +335,10 @@ int main(void)
                            ((g_uptime_s - g_esp_last_seen_ms) < 60U);
       int8_t  w_code     = (g_w_last_seen_ms != 0) ? g_w_code   : (int8_t)-1;
       int8_t  w_temp_c   = (g_w_last_seen_ms != 0) ? g_w_temp_c : (int8_t)0;
-      /* 进度条老化计时：优先以天气帧时间为准；未收到时退而以 ESP 上次会话完成点为准；
-         都未发生时视为刚开机，进度条满 */
-      uint32_t weather_age;
-      if (g_w_last_seen_ms != 0)        weather_age = g_uptime_s - g_w_last_seen_ms;
-      else if (g_esp_last_done_s != 0)  weather_age = g_uptime_s - g_esp_last_done_s;
-      else                              weather_age = 0;
+      /* 进度条只以天气帧时间为准：未联网前=全虚，刚收到=全实，随时间变虚 */
+      uint32_t weather_age = (g_w_last_seen_ms != 0)
+                             ? (g_uptime_s - g_w_last_seen_ms)
+                             : ESP_CYCLE_S;
       /* ST7305 是双稳态屏，IC 自身常态待机 ~30µA，开 SLPIN 需 120ms 唤醒 delay
          反而让平均功耗变高。这里不进 sleep，直接刷屏。 */
       render_screen(g_date, g_hh, g_mm, g_ss, last_temp_x10, last_rh_x10,
@@ -704,21 +702,18 @@ static void fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t co
 #define ICON_ESP_H 22
 static void draw_icon_esp(uint16_t x, uint16_t y)
 {
-  /* antenna: vertical bar + top horizontal bar */
-  fill_rect(x + 12, y,     2, 6, ST7305_COLOR_BLACK);
-  fill_rect(x + 9,  y,     8, 2, ST7305_COLOR_BLACK);
-  /* chip body outline 22x16, 2px stroke */
-  fill_rect(x + 2,  y + 6,  22, 2,  ST7305_COLOR_BLACK);
-  fill_rect(x + 2,  y + 20, 22, 2,  ST7305_COLOR_BLACK);
-  fill_rect(x + 2,  y + 6,  2,  16, ST7305_COLOR_BLACK);
-  fill_rect(x + 22, y + 6,  2,  16, ST7305_COLOR_BLACK);
-  /* solid center block as chip marker */
-  fill_rect(x + 10, y + 11, 6,  6,  ST7305_COLOR_BLACK);
-  /* 4 pins on each side (2px thick, 4px pitch) */
-  for (uint8_t i = 0; i < 4; i++)
+  /* 芯体轮廓 18×14，2px 描边；x+4..x+22, y+4..y+18 */
+  fill_rect((uint16_t)(x + 4),  (uint16_t)(y + 4),  18, 2,  ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + 4),  (uint16_t)(y + 16), 18, 2,  ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + 4),  (uint16_t)(y + 4),  2,  14, ST7305_COLOR_BLACK);
+  fill_rect((uint16_t)(x + 20), (uint16_t)(y + 4),  2,  14, ST7305_COLOR_BLACK);
+  /* 中心实心小块 6×4 */
+  fill_rect((uint16_t)(x + 10), (uint16_t)(y + 9),  6,  4,  ST7305_COLOR_BLACK);
+  /* 两侧各 3 脚（y+6 / y+10 / y+14） */
+  for (uint8_t i = 0; i < 3; i++)
   {
-    fill_rect(x,      y + 8 + i * 4, 2, 2, ST7305_COLOR_BLACK);
-    fill_rect(x + 24, y + 8 + i * 4, 2, 2, ST7305_COLOR_BLACK);
+    fill_rect(x,                  (uint16_t)(y + 6 + i * 4), 4, 2, ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x + 22), (uint16_t)(y + 6 + i * 4), 4, 2, ST7305_COLOR_BLACK);
   }
 }
 
@@ -1139,35 +1134,35 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   /* 分隔线 1：顶部栏下方 */
   fill_rect(0, 26, 400, 1, ST7305_COLOR_BLACK);
 
-  /* ===== 焦点：露点 y=30..114（7 段数码管 84h）+ 右侧小日历 ===== */
+  /* ===== 焦点：露点区 y=27..203（高 176），字体保持 84h 上下留白居中 → 字体 y=73..157 ===== */
   if (dew_valid)
   {
     const uint16_t SW = 44, SH = 84, ST = 5, SG = 7;
-    uint16_t dew_x = 8, dew_y = 30;
+    uint16_t dew_x = 8, dew_y = 73;
     uint16_t draw_w = draw_seg_string(dew_x, dew_y, SW, SH, ST, SG, dew_str);
     /* "C" s=5贴右侧顶部 */
     uint16_t c_x = (uint16_t)(dew_x + draw_w + 8);
     st7305_draw_string(&g_lcd, c_x, dew_y, "C", ST7305_COLOR_BLACK, 5);
     if (dry)
     {
-      /* "!" 与露点高度匹配：主条 6×54 + 8 间隙 + 底点 6×6，总高 68，居中到 cy=72 */
+      /* "!" 与露点同高居中：主条 6×54 + 8 间隙 + 底点 6×6，cy=115 */
       uint16_t bx = (uint16_t)(c_x + 6 * 5 + 18);
-      fill_rect(bx, 38, 6, 54, ST7305_COLOR_BLACK);
-      fill_rect(bx, (uint16_t)(38 + 54 + 8), 6, 6, ST7305_COLOR_BLACK);
+      fill_rect(bx, 81, 6, 54, ST7305_COLOR_BLACK);
+      fill_rect(bx, 143, 6, 6, ST7305_COLOR_BLACK);
     }
   }
-  /* 右上小日历：右对齐到 x=396，与露点行内居中（cy=72 → y=52） */
+  /* 右侧小日历：与露点字体行内居中（cy=115 → y=95） */
   {
     int gy = 0, gmo = 0, gda = 0;
     if (sscanf(date, "%d-%d-%d", &gy, &gmo, &gda) == 3)
     {
       draw_mini_calendar(gy, gmo, gda,
                          (uint16_t)(400 - 4 - MINI_CAL_W),
-                         (uint16_t)(72 - MINI_CAL_H / 2));
+                         (uint16_t)(115 - MINI_CAL_H / 2));
     }
   }
 
-  /* ===== 倒计时进度条 y=122：充当露点与天气间的分隔线 ===== */
+  /* ===== 倒计时进度条 y=204：露点区加高后下移贴近天气区 ===== */
   {
     uint32_t age   = weather_age_s;
     uint32_t cyc   = (weather_cycle_s == 0) ? 1U : weather_cycle_s;
@@ -1176,12 +1171,12 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
     if (solid_w > 400U) solid_w = 400U;
     if (solid_w > 0)
     {
-      fill_rect(0, 122, (uint16_t)solid_w, 1, ST7305_COLOR_BLACK);
+      fill_rect(0, 204, (uint16_t)solid_w, 1, ST7305_COLOR_BLACK);
     }
     for (uint16_t x = (uint16_t)solid_w; x < 400; x += 4)
     {
       uint16_t seg = (uint16_t)((x + 2 > 400) ? (400 - x) : 2);
-      fill_rect(x, 122, seg, 1, ST7305_COLOR_BLACK);
+      fill_rect(x, 204, seg, 1, ST7305_COLOR_BLACK);
     }
   }
 
@@ -1206,19 +1201,19 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
         snprintf(ds, sizeof(ds), "%d", dd);
         uint16_t dw = (uint16_t)(strlen(ds) * 6 * 2);
         uint16_t dx = (uint16_t)(cell_x + (cell_w - dw) / 2);
-        st7305_draw_string(&g_lcd, dx, 140, ds, ST7305_COLOR_BLACK, 2);
+        st7305_draw_string(&g_lcd, dx, 212, ds, ST7305_COLOR_BLACK, 2);
       }
 
       if (fc_code[i] >= 0)
       {
         /* 所有列统一：图标 s=1（28×22），温度 s=2；今天靠双倍宽留白突出 */
         uint16_t icon_x = (uint16_t)(cell_x + (cell_w - 28) / 2);
-        draw_icon_weather(icon_x, 189, 1, fc_code[i]);
+        draw_icon_weather(icon_x, 230, 1, fc_code[i]);
         char ts[8];
         snprintf(ts, sizeof(ts), "%dC", (int)fc_temp[i]);
         uint16_t tw = (uint16_t)(strlen(ts) * 6 * 2);
         uint16_t tx = (uint16_t)(cell_x + (cell_w - tw) / 2);
-        st7305_draw_string(&g_lcd, tx, 246, ts, ST7305_COLOR_BLACK, 2);
+        st7305_draw_string(&g_lcd, tx, 254, ts, ST7305_COLOR_BLACK, 2);
       }
 
       /* 推进到下一天 */
