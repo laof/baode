@@ -3,9 +3,9 @@
 <title>Static Call Graph - [baobe\baobe.axf]</title></head>
 <body><HR>
 <H1>Static Call Graph for image baobe\baobe.axf</H1><HR>
-<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 6240002: Last Updated: Fri May 29 23:20:55 2026
+<BR><P>#&#060CALLGRAPH&#062# ARM Linker, 6240002: Last Updated: Sat May 30 08:14:52 2026
 <BR><P>
-<H3>Maximum Stack Usage =        704 bytes + Unknown(Functions without stacksize, Cycles, Untraceable Function Pointers)</H3><H3>
+<H3>Maximum Stack Usage =        768 bytes + Unknown(Functions without stacksize, Cycles, Untraceable Function Pointers)</H3><H3>
 Call chain for Maximum Stack Depth:</H3>
 __rt_entry_main &rArr; main &rArr; render_screen &rArr; __0sscanf &rArr; __vfscanf_char &rArr; __vfscanf &rArr; _scanf_int
 <P>
@@ -271,7 +271,7 @@ Global Symbols
 <P><STRONG><a name="[111]"></a>__rt_entry_postsh_1</STRONG> (Thumb, 0 bytes, Stack size unknown bytes, __rtentry2.o(.ARM.Collect$$rtentry$$00000009))
 
 <P><STRONG><a name="[6a]"></a>__rt_entry_main</STRONG> (Thumb, 0 bytes, Stack size unknown bytes, __rtentry2.o(.ARM.Collect$$rtentry$$0000000D))
-<BR><BR>[Stack]<UL><LI>Max Depth = 704 + Unknown Stack Size
+<BR><BR>[Stack]<UL><LI>Max Depth = 768 + Unknown Stack Size
 <LI>Call Chain = __rt_entry_main &rArr; main &rArr; render_screen &rArr; __0sscanf &rArr; __vfscanf_char &rArr; __vfscanf &rArr; _scanf_int
 </UL>
 <BR>[Calls]<UL><LI><a href="#[6b]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
@@ -1398,8 +1398,8 @@ Global Symbols
 </UL>
 <BR>[Address Reference Count : 1]<UL><LI> startup_stm32l443xx.o(RESET)
 </UL>
-<P><STRONG><a name="[6b]"></a>main</STRONG> (Thumb, 2380 bytes, Stack size 232 bytes, main.o(.text.main))
-<BR><BR>[Stack]<UL><LI>Max Depth = 704 + Unknown Stack Size
+<P><STRONG><a name="[6b]"></a>main</STRONG> (Thumb, 2388 bytes, Stack size 232 bytes, main.o(.text.main))
+<BR><BR>[Stack]<UL><LI>Max Depth = 768 + Unknown Stack Size
 <LI>Call Chain = main &rArr; render_screen &rArr; __0sscanf &rArr; __vfscanf_char &rArr; __vfscanf &rArr; _scanf_int
 </UL>
 <BR>[Calls]<UL><LI><a href="#[e4]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;HAL_ResumeTick
@@ -1579,8 +1579,8 @@ Local Symbols
 <BR>[Called By]<UL><LI><a href="#[6b]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;main
 </UL>
 
-<P><STRONG><a name="[e1]"></a>render_screen</STRONG> (Thumb, 13308 bytes, Stack size 248 bytes, main.o(.text.render_screen))
-<BR><BR>[Stack]<UL><LI>Max Depth = 472 + Unknown Stack Size
+<P><STRONG><a name="[e1]"></a>render_screen</STRONG> (Thumb, 17184 bytes, Stack size 312 bytes, main.o(.text.render_screen))
+<BR><BR>[Stack]<UL><LI>Max Depth = 536 + Unknown Stack Size
 <LI>Call Chain = render_screen &rArr; __0sscanf &rArr; __vfscanf_char &rArr; __vfscanf &rArr; _scanf_int
 </UL>
 <BR>[Calls]<UL><LI><a href="#[e9]">&gt;&gt;</a>&nbsp;&nbsp;&nbsp;st7305_refresh
