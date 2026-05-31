@@ -19,9 +19,9 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClient.h>
-#include <WiFiClientSecure.h>
 #include <time.h>
 #include "esp_sleep.h"
+#include "esp_wifi.h"
 #include "secrets.h"
 
 static const char *NTP_1 = "ntp.aliyun.com";
@@ -48,23 +48,8 @@ static void sendLine(const char *s) {
 static bool connectWiFi() {
   Serial.printf("[WiFi] connecting to %s ...\n", WIFI_SSID);
 
-  /* 先扫描可见的 SSID，方便诊断 */
   WiFi.mode(WIFI_STA);
-  WiFi.disconnect(true);
-  delay(100);
-  int n = WiFi.scanNetworks();
-  Serial.printf("[Scan] %d networks found:\n", n);
-  bool ssid_seen = false;
-  for (int i = 0; i < n; i++) {
-    int rssi = WiFi.RSSI(i);
-    Serial.printf("  %2d) %-32s  RSSI=%d  ch=%d  enc=%d\n",
-                  i, WiFi.SSID(i).c_str(), rssi,
-                  WiFi.channel(i), WiFi.encryptionType(i));
-    if (WiFi.SSID(i) == WIFI_SSID) ssid_seen = true;
-  }
-  Serial.printf("[Scan] target SSID '%s' %s\n",
-                WIFI_SSID, ssid_seen ? "VISIBLE" : "NOT FOUND");
-
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);  /* 降射频功率以省电；信号差时改回 WIFI_POWER_11dBm */
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 
   uint32_t t0 = millis();
@@ -128,8 +113,8 @@ static int clampTemp(int v) {
 }
 
 static bool httpsGet(const String &url, String &out) {
-  WiFiClientSecure client;
-  client.setInsecure();             /* 跳过证书校验，节省 RAM/时间 */
+  /* 改走明文 HTTP，省掉 TLS 握手的 CPU/RF 占用；Open-Meteo 同时支持 http:// 与 https:// */
+  WiFiClient client;
   HTTPClient http;
   http.setTimeout(8000);
   if (!http.begin(client, url)) return false;
@@ -195,7 +180,7 @@ static bool resolveCityCoords(double *lat, double *lon) {
   }
   String city = String(WEATHER_CITY);
   city.replace(" ", "+");
-  String url = "https://geocoding-api.open-meteo.com/v1/search?name=" + city
+  String url = "http://geocoding-api.open-meteo.com/v1/search?name=" + city
              + "&count=1&language=en&format=json";
   String body;
   if (!httpsGet(url, body)) return false;
@@ -223,7 +208,7 @@ static bool fetchWeather() {
 
   char url[256];
   snprintf(url, sizeof(url),
-           "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
+           "http://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
            "&current=weather_code,temperature_2m"
            "&daily=weather_code,temperature_2m_max"
            "&forecast_days=6&timezone=auto",
@@ -302,6 +287,7 @@ void setup() {
    * 这行删掉即可改为"永远睡，靠主控切电唤醒"。 */
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
+  esp_wifi_stop();                                              /* 彻底关闭射频，避免 sleep 前残留功耗 */
   esp_sleep_enable_timer_wakeup(3ULL * 3600ULL * 1000000ULL);  /* 3h */
   esp_deep_sleep_start();
 }
