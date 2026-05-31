@@ -1,0 +1,36 @@
+=2000ms
+  [.] status=6  elapsed=2500ms
+  [.] status=6  elapsed=3000ms
+  [.] status=6  elapsed=3500ms
+  [.] status=6  elapsed=4500ms
+  [.] status=6  elapsed=5000ms
+  [.] status=6  elapsed=5500ms
+  [.] status=6  elapsed=6000ms
+  [.] status=6  elapsed=6500ms
+  [.] status=6  elapsed=7000ms
+  [.] status=6  elapsed=7500ms
+  [.] status=6  elapsed=8000ms
+  [.] status=6  elapsed=8500ms
+  [.] status=0  elapsed=9000ms
+  [.] status=0  elapsed=9500ms
+  [.] status=0  elapsed=10000ms
+  [.] status=0  elapsed=10500ms
+[WiFi] OK  IP=192.168.31.16  RSSI=-96
+S:W
+[NTP] FAIL
+
+assert failed: udp_new_ip_type /IDF/components/lwip/lwip/src/core/udp.c:1278 (Required to lock TCPIP core functionality!)
+Core  0 register dump:
+MEPC    : 0x40386f78  RA      : 0x40386f3c  SP      : 0x3fca2080  GP      : 0x3fc90c00  
+TP      : 0x3fca28e0  T0      : 0x6974636e  T1      : 0x6f6c206f  T2      : 0x6c616e6f  
+S0/FP   : 0x00000001  S1      : 0x3fca2229  A0      : 0x3fca20e4  A1      : 0x3fc935c1  
+A2      : 0x00000001  A3      : 0x3fca215d  A4      : 0x00000001  A5      : 0x3fc99000  
+A6      : 0x00000004  A7      : 0x74206465  S2      : 0x0000004e  S3      : 0x3fca20d8  
+S4      : 0x3fca20d8  S5      : 0x3fca20e4  S6      : 0x00000000  S7      : 0x3fc95388  
+S8      : 0x3fc99000  S9      : 0x4202519c  S10     : 0x00000000  S11     : 0x3fc953b8  
+T3      : 0x54206b63  T4      : 0x50495043  T5      : 0x726f6320  T6      : 0x75662065  
+MSTATUS : 0x00001881  MTVEC   : 0x40380001  MCAUSE  : 0x00000002  MTVAL   : 0x00000000  
+MHARTID : 0x00000000  
+
+Stack memory:
+3fca2080: 0x3fca208c 0x00000000 0x3c0f9fe0 0x4038dbe8 0x00000001 0x3ff1b74c 0x00000007 0x3fc935c0
