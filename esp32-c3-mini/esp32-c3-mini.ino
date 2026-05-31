@@ -19,6 +19,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClient.h>
+#include <WiFiClientSecure.h>
 #include <time.h>
 #include "esp_sleep.h"
 #include "secrets.h"
@@ -102,54 +103,182 @@ static bool syncAndSendTime() {
   return true;
 }
 
-static int classifyCondition(const String &cond) {
-  String c = cond; c.toLowerCase();
-  if (c.indexOf("thunder") >= 0 || c.indexOf("rain")   >= 0
-   || c.indexOf("drizzle") >= 0 || c.indexOf("shower") >= 0) return 3;
-  if (c.indexOf("snow")    >= 0 || c.indexOf("sleet")  >= 0
-   || c.indexOf("blizzard")>= 0 || c.indexOf("ice")    >= 0) return 4;
-  if (c.indexOf("partly")  >= 0) return 1;
-  if (c.indexOf("sunny")   >= 0 || c.indexOf("clear")  >= 0) return 0;
+/* ===== Open-Meteo 天气：今天来自 current，未来 5 天来自 daily[1..5] ===== */
+
+/* WMO weather code -> 5 类：0=晴 1=多云 2=阴/雾 3=雨/雷 4=雪 */
+static int mapWmoToCode(int wmo) {
+  if (wmo == 0) return 0;
+  if (wmo == 1 || wmo == 2) return 1;
+  if (wmo == 3 || wmo == 45 || wmo == 48) return 2;
+  if ((wmo >= 51 && wmo <= 67)
+   || (wmo >= 80 && wmo <= 82)
+   || (wmo >= 95 && wmo <= 99)) return 3;
+  if ((wmo >= 71 && wmo <= 77) || wmo == 85 || wmo == 86) return 4;
   return 2;
 }
 
-static int parseSignedTemp(const String &s) {
-  int sign = 1, i = 0, n = s.length();
-  while (i < n && (s[i] == ' ' || s[i] == '+')) i++;
-  if (i < n && s[i] == '-') { sign = -1; i++; }
-  int v = 0; bool got = false;
-  while (i < n && isDigit(s[i])) { v = v * 10 + (s[i] - '0'); got = true; i++; }
-  return got ? sign * v : 0;
+static int roundToInt(double x) {
+  return (int)((x >= 0) ? (x + 0.5) : (x - 0.5));
 }
 
-static bool fetchWeather() {
-  String city = String(WEATHER_CITY);
-  city.replace(" ", "+");
-  String url = "http://wttr.in/" + city + "?format=%C|%t&m";
+static int clampTemp(int v) {
+  if (v < -99) return -99;
+  if (v >  99) return  99;
+  return v;
+}
 
-  WiFiClient client;
+static bool httpsGet(const String &url, String &out) {
+  WiFiClientSecure client;
+  client.setInsecure();             /* 跳过证书校验，节省 RAM/时间 */
   HTTPClient http;
   http.setTimeout(8000);
   if (!http.begin(client, url)) return false;
   int code = http.GET();
-  if (code != HTTP_CODE_OK) { http.end(); return false; }
-  String body = http.getString();
+  if (code != HTTP_CODE_OK) {
+    Serial.printf("[HTTP] %s -> %d\n", url.c_str(), code);
+    http.end();
+    return false;
+  }
+  out = http.getString();
   http.end();
-  body.trim();
-  Serial.printf("[WX] %s\n", body.c_str());
+  return true;
+}
 
-  int bar = body.indexOf('|');
-  if (bar <= 0) return false;
-  int wcode = classifyCondition(body.substring(0, bar));
-  int wtemp = parseSignedTemp(body.substring(bar + 1));
-  if (wtemp < -99) wtemp = -99;
-  if (wtemp >  99) wtemp =  99;
+/* 在 JSON 文本中查找 "key": 后的下一个数值；不做完整 JSON 解析，仅适用于 Open-Meteo 这种简单结构 */
+static bool jsonFindNumber(const String &s, int from, const char *key, double *out) {
+  int k = s.indexOf(key, from);
+  if (k < 0) return false;
+  int colon = s.indexOf(':', k + (int)strlen(key));
+  if (colon < 0) return false;
+  int i = colon + 1;
+  int n = s.length();
+  while (i < n && (s[i] == ' ' || s[i] == '\t')) i++;
+  int start = i;
+  if (i < n && (s[i] == '-' || s[i] == '+')) i++;
+  while (i < n && (isDigit(s[i]) || s[i] == '.' || s[i] == 'e' || s[i] == 'E')) i++;
+  if (i == start) return false;
+  *out = atof(s.substring(start, i).c_str());
+  return true;
+}
 
-  char out[24];
-  int n = snprintf(out, sizeof(out), "W:%d,%d\n", wcode, wtemp);
-  Serial1.write((const uint8_t *)out, n);
-  Serial1.flush();
-  Serial.printf("[TX] %s", out);
+/* 解析 "key":[v0,v1,v2,...] 形式的数值数组，最多取 max_n 个 */
+static int jsonFindArray(const String &s, int from, const char *key, double *out, int max_n) {
+  int k = s.indexOf(key, from);
+  if (k < 0) return 0;
+  int lb = s.indexOf('[', k);
+  if (lb < 0) return 0;
+  int rb = s.indexOf(']', lb);
+  if (rb < 0) return 0;
+  int n = 0;
+  int i = lb + 1;
+  while (i < rb && n < max_n) {
+    while (i < rb && (s[i] == ' ' || s[i] == ',' || s[i] == '\t' || s[i] == '\n')) i++;
+    int start = i;
+    if (i < rb && (s[i] == '-' || s[i] == '+')) i++;
+    while (i < rb && (isDigit(s[i]) || s[i] == '.' || s[i] == 'e' || s[i] == 'E')) i++;
+    if (i == start) break;
+    out[n++] = atof(s.substring(start, i).c_str());
+  }
+  return n;
+}
+
+/* 地理坐标缓存：跨 deep sleep 保留，避免每次都走 geocoding */
+RTC_DATA_ATTR static double s_cached_lat = 0.0;
+RTC_DATA_ATTR static double s_cached_lon = 0.0;
+RTC_DATA_ATTR static bool   s_cached_geo = false;
+
+static bool resolveCityCoords(double *lat, double *lon) {
+  if (s_cached_geo) {
+    *lat = s_cached_lat;
+    *lon = s_cached_lon;
+    return true;
+  }
+  String city = String(WEATHER_CITY);
+  city.replace(" ", "+");
+  String url = "https://geocoding-api.open-meteo.com/v1/search?name=" + city
+             + "&count=1&language=en&format=json";
+  String body;
+  if (!httpsGet(url, body)) return false;
+  int rk = body.indexOf("\"results\"");
+  if (rk < 0) {
+    Serial.println("[GEO] no results");
+    return false;
+  }
+  if (!jsonFindNumber(body, rk, "\"latitude\"", lat))  return false;
+  if (!jsonFindNumber(body, rk, "\"longitude\"", lon)) return false;
+  s_cached_lat = *lat;
+  s_cached_lon = *lon;
+  s_cached_geo = true;
+  Serial.printf("[GEO] %s -> %.4f,%.4f\n", WEATHER_CITY, *lat, *lon);
+  return true;
+}
+
+/* 拉一次 Open-Meteo：发送 W:<code>,<temp>（今天）和 F:c,t;c,t;c,t;c,t;c,t（未来 5 天）*/
+static bool fetchWeather() {
+  double lat = 0, lon = 0;
+  if (!resolveCityCoords(&lat, &lon)) {
+    Serial.println("[WX] geocode FAIL");
+    return false;
+  }
+
+  char url[256];
+  snprintf(url, sizeof(url),
+           "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
+           "&current=weather_code,temperature_2m"
+           "&daily=weather_code,temperature_2m_max"
+           "&forecast_days=6&timezone=auto",
+           lat, lon);
+
+  String body;
+  if (!httpsGet(String(url), body)) {
+    Serial.println("[WX] open-meteo FAIL");
+    return false;
+  }
+
+  /* current */
+  int cur_idx = body.indexOf("\"current\"");
+  if (cur_idx < 0) { Serial.println("[WX] no current"); return false; }
+  double cur_code = 0, cur_temp = 0;
+  if (!jsonFindNumber(body, cur_idx, "\"weather_code\"",   &cur_code)) return false;
+  if (!jsonFindNumber(body, cur_idx, "\"temperature_2m\"", &cur_temp)) return false;
+  int today_code = mapWmoToCode((int)cur_code);
+  int today_t    = clampTemp(roundToInt(cur_temp));
+
+  /* daily 数组（包含今天 + 未来 5 天，共 6 项） */
+  int daily_idx = body.indexOf("\"daily\"");
+  if (daily_idx < 0) { Serial.println("[WX] no daily"); return false; }
+  double dcodes[8] = {0}, dtemps[8] = {0};
+  int nc = jsonFindArray(body, daily_idx, "\"weather_code\"",       dcodes, 8);
+  int nt = jsonFindArray(body, daily_idx, "\"temperature_2m_max\"", dtemps, 8);
+  if (nc < 6 || nt < 6) {
+    Serial.printf("[WX] daily too short: nc=%d nt=%d\n", nc, nt);
+    return false;
+  }
+
+  /* 发送 W: 今天（current） */
+  {
+    char buf[24];
+    int n = snprintf(buf, sizeof(buf), "W:%d,%d\n", today_code, today_t);
+    Serial1.write((const uint8_t *)buf, n);
+    Serial1.flush();
+    Serial.printf("[TX] %s", buf);
+  }
+
+  /* 发送 F: 未来 5 天（daily[1..5]） */
+  {
+    char buf[64];
+    int p = 0;
+    p += snprintf(buf + p, sizeof(buf) - p, "F:");
+    for (int i = 1; i <= 5; i++) {
+      int c = mapWmoToCode((int)dcodes[i]);
+      int t = clampTemp(roundToInt(dtemps[i]));
+      p += snprintf(buf + p, sizeof(buf) - p, "%s%d,%d", (i == 1) ? "" : ";", c, t);
+    }
+    p += snprintf(buf + p, sizeof(buf) - p, "\n");
+    Serial1.write((const uint8_t *)buf, p);
+    Serial1.flush();
+    Serial.printf("[TX] %s", buf);
+  }
   return true;
 }
 

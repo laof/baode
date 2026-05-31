@@ -58,19 +58,26 @@ static volatile uint8_t  g_time_synced = 0;
 static char              g_date[11]    = "2026-01-01";  /* YYYY-MM-DD\0 */
 static volatile uint8_t  g_hh = 0, g_mm = 0, g_ss = 0;
 
-/* USART2 单字节接收 + 行缓冲 */
+/* USART2 单字节接收 + 行缓冲（F: 帧最长约 36 字节，留余量） */
 static uint8_t  g_uart_rx_byte;
-static char     g_line_buf[32];
+static char     g_line_buf[80];
 static uint8_t  g_line_len = 0;
 
 /* 副控连接/Wi-Fi 状态 */
 static volatile uint32_t g_esp_last_seen_ms = 0;   /* 最后一次收到任意帧的 uptime 秒（变量名保留兼容） */
 static volatile uint8_t  g_wifi_up = 0;            /* 0=down/unknown, 1=up */
+static volatile uint8_t  g_wifi_ever_ok = 0;       /* 历史上是否曾经联网成功 */
+static volatile uint8_t  g_wifi_failed = 0;        /* sticky：曾经联网过、但本次/之后联网失败，直到下次成功才清 */
 
 /* 天气：0=晴 1=多云 2=阴/雾 3=雨 4=雪，-1=未知 */
 static volatile int8_t   g_w_code   = -1;
 static volatile int8_t   g_w_temp_c = 0;
 static volatile uint32_t g_w_last_seen_ms = 0;
+
+/* 未来 5 天预报（来自 ESP 的 F: 帧），下标 0=明天, 4=后第五天 */
+static volatile int8_t   g_fc_code[5] = { -1, -1, -1, -1, -1 };
+static volatile int8_t   g_fc_temp[5] = {  0,  0,  0,  0,  0 };
+static volatile uint32_t g_fc_last_seen_ms = 0;
 
 /* 副控电源管理：每 3 小时唤醒 ESP32 一次，完成校时/天气后切电 */
 #define ESP_CYCLE_S       (3UL * 3600UL)            /* 3 小时一周期 */
@@ -96,8 +103,9 @@ static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
                           int16_t temp_x10, uint16_t rh_x10,
-                          uint8_t esp_online, uint8_t wifi_up,
+                          uint8_t esp_online, uint8_t wifi_up, uint8_t wifi_failed,
                           int8_t w_code, int8_t w_temp_c,
+                          const int8_t fc_code[5], const int8_t fc_temp[5],
                           uint8_t bat_bars,
                           uint32_t weather_age_s, uint32_t weather_cycle_s);
 static void MX_RTC_Init(void);
@@ -335,6 +343,16 @@ int main(void)
                            ((g_uptime_s - g_esp_last_seen_ms) < 60U);
       int8_t  w_code     = (g_w_last_seen_ms != 0) ? g_w_code   : (int8_t)-1;
       int8_t  w_temp_c   = (g_w_last_seen_ms != 0) ? g_w_temp_c : (int8_t)0;
+      /* 预报数据：未收到过 F: 帧时全部置 -1（render_screen 内部跳过空格） */
+      int8_t fc_c[5], fc_t[5];
+      if (g_fc_last_seen_ms != 0)
+      {
+        for (uint8_t i = 0; i < 5; i++) { fc_c[i] = g_fc_code[i]; fc_t[i] = g_fc_temp[i]; }
+      }
+      else
+      {
+        for (uint8_t i = 0; i < 5; i++) { fc_c[i] = -1; fc_t[i] = 0; }
+      }
       /* 进度条只以天气帧时间为准：未联网前=全虚，刚收到=全实，随时间变虚 */
       uint32_t weather_age = (g_w_last_seen_ms != 0)
                              ? (g_uptime_s - g_w_last_seen_ms)
@@ -342,7 +360,8 @@ int main(void)
       /* ST7305 是双稳态屏，IC 自身常态待机 ~30µA，开 SLPIN 需 120ms 唤醒 delay
          反而让平均功耗变高。这里不进 sleep，直接刷屏。 */
       render_screen(g_date, g_hh, g_mm, g_ss, last_temp_x10, last_rh_x10,
-                    esp_online, g_wifi_up, w_code, w_temp_c, last_bat_bars,
+                    esp_online, g_wifi_up, g_wifi_failed,
+                    w_code, w_temp_c, fc_c, fc_t, last_bat_bars,
                     weather_age, ESP_CYCLE_S);
     }
 
@@ -803,47 +822,41 @@ static void draw_icon_weather(uint16_t x, uint16_t y, uint8_t s, int8_t code)
   }
 }
 
-/* 信号塔 + 3 根信号条图标 22×13：左侧塔架，右侧从低到高的 3 根条。未联网不画。 */
+/* WiFi 信号图标 22×13：5 根竖条，中间最高，两侧对称依次变短，底部对齐 */
 #define ICON_WIFI_W 22
 #define ICON_WIFI_H 13
 static void draw_icon_signal(uint16_t x, uint16_t y, uint8_t has_signal)
 {
   if (!has_signal) return;
 
-  /* 塔架 x=0..7：顶部横条 + 两斜腿 + 中间竖杆 */
-  fill_rect(x,                  y,                  8, 2, ST7305_COLOR_BLACK);
-  /* 两斜腿：从两上角收进到中央（3,3） */
-  st7305_draw_pixel(&g_lcd, (uint16_t)(x + 1), (uint16_t)(y + 2), ST7305_COLOR_BLACK);
-  st7305_draw_pixel(&g_lcd, (uint16_t)(x + 2), (uint16_t)(y + 3), ST7305_COLOR_BLACK);
-  st7305_draw_pixel(&g_lcd, (uint16_t)(x + 6), (uint16_t)(y + 2), ST7305_COLOR_BLACK);
-  st7305_draw_pixel(&g_lcd, (uint16_t)(x + 5), (uint16_t)(y + 3), ST7305_COLOR_BLACK);
-  /* 中央竖杆 2px 宽从 y=2 贯穿到底 y=12 */
-  fill_rect((uint16_t)(x + 3), (uint16_t)(y + 2), 2, 11, ST7305_COLOR_BLACK);
-
-  /* 3 根信号条（从短到长），均 2px 宽，间距 2px，底对齐到 y=12 */
-  fill_rect((uint16_t)(x + 10), (uint16_t)(y + 9), 2, 4,  ST7305_COLOR_BLACK);
-  fill_rect((uint16_t)(x + 14), (uint16_t)(y + 6), 2, 7,  ST7305_COLOR_BLACK);
-  fill_rect((uint16_t)(x + 18), (uint16_t)(y + 3), 2, 10, ST7305_COLOR_BLACK);
+  /* 5 根 2px 宽竖条，间距 3px：x 偏移 0/5/10/15/20；高度 4/8/13/8/4，底对齐 y+13 */
+  static const uint8_t bar_h[5] = { 4, 8, 13, 8, 4 };
+  for (uint8_t i = 0; i < 5; i++)
+  {
+    uint16_t bx = (uint16_t)(x + i * 5);
+    uint16_t by = (uint16_t)(y + (ICON_WIFI_H - bar_h[i]));
+    fill_rect(bx, by, 2, bar_h[i], ST7305_COLOR_BLACK);
+  }
 }
 
 
-/* 电池图标 27×14：实心外壳描边 + 右侧正极 + 内部 5 格电量条 */
+/* 电池图标 27×14：1px 细描边外壳 + 右侧正极 + 内部 5 格电量条 */
 #define ICON_BAT_W 27
 #define ICON_BAT_H 14
 static void draw_icon_battery(uint16_t x, uint16_t y, uint8_t bars)
 {
-  /* 主体 24×14，2px 粗描边 */
-  fill_rect(x,      y,       24, 2,  ST7305_COLOR_BLACK);
-  fill_rect(x,      y + 12,  24, 2,  ST7305_COLOR_BLACK);
-  fill_rect(x,      y,       2,  14, ST7305_COLOR_BLACK);
-  fill_rect(x + 22, y,       2,  14, ST7305_COLOR_BLACK);
+  /* 主体 24×14，1px 细描边 */
+  fill_rect(x,      y,       24, 1,  ST7305_COLOR_BLACK);
+  fill_rect(x,      y + 13,  24, 1,  ST7305_COLOR_BLACK);
+  fill_rect(x,      y,       1,  14, ST7305_COLOR_BLACK);
+  fill_rect(x + 23, y,       1,  14, ST7305_COLOR_BLACK);
   /* 右侧正极 3×6 */
   fill_rect(x + 24, y + 4,   3,  6,  ST7305_COLOR_BLACK);
-  /* 5 格电量条：每格 3×8，间距 1px（左起 x+3） */
+  /* 5 格电量条：每格 2×10，间距 2px（左起 x+3） */
   if (bars > 5) bars = 5;
   for (uint8_t i = 0; i < bars; i++)
   {
-    fill_rect((uint16_t)(x + 3 + i * 4), (uint16_t)(y + 3), 3, 8, ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(x + 3 + i * 4), (uint16_t)(y + 2), 2, 10, ST7305_COLOR_BLACK);
   }
 }
 
@@ -1051,8 +1064,9 @@ static void draw_mini_calendar(int year, int month, int today, uint16_t x, uint1
 
 static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
                           int16_t temp_x10, uint16_t rh_x10,
-                          uint8_t esp_online, uint8_t wifi_up,
+                          uint8_t esp_online, uint8_t wifi_up, uint8_t wifi_failed,
                           int8_t w_code, int8_t w_temp_c,
+                          const int8_t fc_code_in[5], const int8_t fc_temp_in[5],
                           uint8_t bat_bars,
                           uint32_t weather_age_s, uint32_t weather_cycle_s)
 {
@@ -1092,10 +1106,16 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   snprintf(dew_str,  sizeof(dew_str),  "%s%d.%d",
            dew_x10 < 0 ? "-" : "", dew_abs / 10, dew_abs % 10);
 
-  /* 六日预报：今天来自 ESP 真实数据，后 5 天暂用假数据占位（不动 ESP 协议） */
-  int8_t fc_code[6] = { w_code,   1, 3, 2, 0, 1 };
-  int8_t fc_temp[6] = { w_temp_c, 24, 19, 21, 28, 25 };
-  if (w_code < 0) { fc_code[0] = 0; fc_temp[0] = 22; }  /* 未收到时今天给个占位 */
+  /* 六日预报：今天 = ESP 实时帧 W:；后 5 天 = ESP 多日帧 F:。任意一项缺失则该格留空（不绘制）。 */
+  int8_t fc_code[6];
+  int8_t fc_temp[6];
+  fc_code[0] = w_code;
+  fc_temp[0] = w_temp_c;
+  for (uint8_t i = 0; i < 5; i++)
+  {
+    fc_code[i + 1] = fc_code_in ? fc_code_in[i] : (int8_t)-1;
+    fc_temp[i + 1] = fc_temp_in ? fc_temp_in[i] : (int8_t)0;
+  }
 
   st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
 
@@ -1104,6 +1124,14 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   if (esp_online)
   {
     draw_icon_esp(38, 1);
+  }
+  /* WiFi 状态：sticky 失败优先显示 !!!（即使 ESP 已断电），否则在线且联网才画信号条 */
+  if (wifi_failed)
+  {
+    st7305_draw_string(&g_lcd, 68, 5, "!!!", ST7305_COLOR_BLACK, 2);
+  }
+  else if (esp_online)
+  {
     draw_icon_signal(68, 8, wifi_up);
   }
   /* 时间 HH:MM s=2：5*6*2=60 宽，右边距 4 → x=336, y=5 */
@@ -1120,13 +1148,21 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
     const uint16_t SW = 44, SH = 84, ST = 5, SG = 7;
     uint16_t dew_x = 8, dew_y = 51;
     uint16_t draw_w = draw_seg_string(dew_x, dew_y, SW, SH, ST, SG, dew_str);
-    /* "C" s=5贴右侧顶部 */
-    uint16_t c_x = (uint16_t)(dew_x + draw_w + 8);
-    st7305_draw_string(&g_lcd, c_x, dew_y, "C", ST7305_COLOR_BLACK, 5);
+    /* "℃"：小空心方块（度数符号）+ 较小的 C，顶部对齐到数字顶 */
+    const uint8_t  Cs  = 4;            /* C 缩放：5*4 × 7*4 = 20×28 */
+    const uint16_t Dsz = 7;            /* 空心方块边长（1px 描边） */
+    uint16_t deg_x = (uint16_t)(dew_x + draw_w + 8);
+    uint16_t deg_y = dew_y;
+    fill_rect(deg_x,                              deg_y,                          Dsz, 1,   ST7305_COLOR_BLACK);
+    fill_rect(deg_x,                              (uint16_t)(deg_y + Dsz - 1),    Dsz, 1,   ST7305_COLOR_BLACK);
+    fill_rect(deg_x,                              deg_y,                          1,   Dsz, ST7305_COLOR_BLACK);
+    fill_rect((uint16_t)(deg_x + Dsz - 1),        deg_y,                          1,   Dsz, ST7305_COLOR_BLACK);
+    uint16_t c_x = (uint16_t)(deg_x + Dsz + 3);
+    st7305_draw_string(&g_lcd, c_x, deg_y, "C", ST7305_COLOR_BLACK, Cs);
     if (dry)
     {
       /* "!" 与露点同高居中：主条 6×54 + 8 间隙 + 底点 6×6，cy=93 */
-      uint16_t bx = (uint16_t)(c_x + 6 * 5 + 18);
+      uint16_t bx = (uint16_t)(c_x + 6 * Cs + 12);
       fill_rect(bx, 59,  6, 54, ST7305_COLOR_BLACK);
       fill_rect(bx, 121, 6, 6,  ST7305_COLOR_BLACK);
     }
@@ -1308,12 +1344,18 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     {
       if (g_line_buf[2] == 'W')
       {
-        g_wifi_up = 1;
+        g_wifi_up       = 1;
+        g_wifi_ever_ok  = 1;
+        g_wifi_failed   = 0;   /* 联网成功 → 清除 sticky 失败 */
         frame_ok = 1;
       }
       else if (g_line_buf[2] == 'N')
       {
         g_wifi_up = 0;
+        if (g_wifi_ever_ok)    /* 历史上联过网，本次失败 → 置 sticky */
+        {
+          g_wifi_failed = 1;
+        }
         frame_ok = 1;
       }
     }
@@ -1343,6 +1385,58 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
         g_w_code         = wcode;
         g_w_temp_c       = (int8_t)v;
         g_w_last_seen_ms = g_uptime_s;
+        frame_ok = 1;
+      }
+    }
+    /* F:c,t;c,t;c,t;c,t;c,t  未来 5 天，每天 code(0..4) + 温度（带符号，最多 3 位） */
+    else if (g_line_len >= 19 && g_line_buf[0] == 'F' && g_line_buf[1] == ':')
+    {
+      int8_t  tmp_c[5] = {0};
+      int8_t  tmp_t[5] = {0};
+      uint8_t i = 2;
+      uint8_t day_ok = 0;
+      for (uint8_t d = 0; d < 5; d++)
+      {
+        if (i >= g_line_len) break;
+        /* code: 1 位数字 */
+        if (g_line_buf[i] < '0' || g_line_buf[i] > '4') break;
+        int8_t code = (int8_t)(g_line_buf[i] - '0');
+        i++;
+        if (i >= g_line_len || g_line_buf[i] != ',') break;
+        i++;
+        /* temp: 可选符号 + 1..3 位数字 */
+        int sgn = 1;
+        if (i < g_line_len && g_line_buf[i] == '-') { sgn = -1; i++; }
+        else if (i < g_line_len && g_line_buf[i] == '+') { i++; }
+        int vv = 0; uint8_t tgot = 0;
+        while (i < g_line_len && g_line_buf[i] >= '0' && g_line_buf[i] <= '9')
+        {
+          vv = vv * 10 + (g_line_buf[i] - '0');
+          tgot = 1;
+          i++;
+        }
+        if (!tgot) break;
+        int v2 = sgn * vv;
+        if (v2 < -99) v2 = -99;
+        if (v2 >  99) v2 =  99;
+        tmp_c[d] = code;
+        tmp_t[d] = (int8_t)v2;
+        day_ok++;
+        /* 非末尾需要 ';' 分隔 */
+        if (d < 4)
+        {
+          if (i >= g_line_len || g_line_buf[i] != ';') break;
+          i++;
+        }
+      }
+      if (day_ok == 5)
+      {
+        for (uint8_t d = 0; d < 5; d++)
+        {
+          g_fc_code[d] = tmp_c[d];
+          g_fc_temp[d] = tmp_t[d];
+        }
+        g_fc_last_seen_ms = g_uptime_s;
         frame_ok = 1;
       }
     }
