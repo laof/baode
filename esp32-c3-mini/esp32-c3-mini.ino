@@ -87,9 +87,9 @@ static bool connectWiFi() {
 static bool syncAndSendTime() {
   configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_1, NTP_2, NTP_3);
   struct tm tm_now;
-  uint32_t t0 = millis();
-  while (!getLocalTime(&tm_now, 200) && (millis() - t0) < NTP_TIMEOUT_MS) {}
-  if (!getLocalTime(&tm_now, 200)) {
+  /* 一次性等待，不要在紧循环里反复调用 getLocalTime()
+     新版 Arduino-ESP32/LwIP 会触发 "Required to lock TCPIP core functionality" 断言 */
+  if (!getLocalTime(&tm_now, NTP_TIMEOUT_MS)) {
     Serial.println("[NTP] FAIL");
     return false;
   }
