@@ -49,7 +49,7 @@ static bool connectWiFi() {
   Serial.printf("[WiFi] connecting to %s ...\n", WIFI_SSID);
 
   WiFi.mode(WIFI_STA);
-  WiFi.setTxPower(WIFI_POWER_8_5dBm);  /* 降射频功率以省电；信号差时改回 WIFI_POWER_11dBm */
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);  /* 保持默认最大功率，保证穿墙稳定性 */
   WiFi.begin(WIFI_SSID, WIFI_PASS);
 
   uint32_t t0 = millis();
