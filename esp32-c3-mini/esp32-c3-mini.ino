@@ -2,25 +2,24 @@
  * 副控：ESP32-C3-Pro Mini  (单次上电工作版)
  *
  * 工作模型（配合主控 STM32L443 的电源管理）：
- *   1. 主控通过三极管把 ESP32 模组上电
+ *   1. 主控通过 AO3401 高边开关给 ESP32 上电
  *   2. ESP32 开机 -> 连 Wi-Fi -> 上报 Wi-Fi 状态 (S:W / S:N)
  *   3. 成功联网 -> NTP 校时 -> 发一帧 T:YYYY-MM-DD HH:MM:SS
- *   4. 拉一次天气 -> 发一帧 W:<code>,<temp>
+ *   4. 拉一次天气 -> 发一帧 W:<code>,<temp>，未来 5 天 F:c,t;...
  *   5. 不论成败，最后发 "D\n" 表示本轮会话结束
- *   6. 进入 deep sleep / 空转，等待主控断电
+ *   6. 关闭 Wi-Fi 射频，空转等待主控切电（不再 deep sleep）
  *
  * 接线：
  *   ESP32 GPIO4 (Serial1 TX) ──► STM32 PA3 (USART2_RX)   必接
  *   ESP32 GPIO5 (Serial1 RX) ──► STM32 PA2 (USART2_TX)   可选，本固件不用
  *   ESP32 GND                ──► STM32 GND               共地，必接
- *   ESP32 模组 VCC           ──► 高边开关（PNP/PMOS）由 STM32 PB1 控制
+ *   ESP32 模组 VCC           ──► AO3401 Drain，由 STM32 PB1 经 S8050 控制
  */
 
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClient.h>
 #include <time.h>
-#include "esp_sleep.h"
 #include "esp_wifi.h"
 #include "secrets.h"
 
@@ -167,10 +166,10 @@ static int jsonFindArray(const String &s, int from, const char *key, double *out
   return n;
 }
 
-/* 地理坐标缓存：跨 deep sleep 保留，避免每次都走 geocoding */
-RTC_DATA_ATTR static double s_cached_lat = 0.0;
-RTC_DATA_ATTR static double s_cached_lon = 0.0;
-RTC_DATA_ATTR static bool   s_cached_geo = false;
+/* 地理坐标缓存（每次上电重新解析，主控完全断电后不保留）*/
+static double s_cached_lat = 0.0;
+static double s_cached_lon = 0.0;
+static bool   s_cached_geo = false;
 
 static bool resolveCityCoords(double *lat, double *lon) {
   if (s_cached_geo) {
@@ -279,19 +278,18 @@ void setup() {
     fetchWeather();
   }
 
-  /* 通知主控本次会话结束 */
+  /* 通知主控本次会话结束，主控收到 D 帧后会切断 ESP32 电源 */
   sendLine("D\n");
 
-  /* 进入深度睡眠：当前无硬件电源开关，靠定时唤醒做 3 小时自循环。
-   * 以后若接上主控控制的电源开关（方案 A），把 esp_sleep_enable_timer_wakeup
-   * 这行删掉即可改为"永远睡，靠主控切电唤醒"。 */
+  /* 关闭 Wi-Fi 射频，降低断电前功耗 */
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
-  esp_wifi_stop();                                              /* 彻底关闭射频，避免 sleep 前残留功耗 */
-  esp_sleep_enable_timer_wakeup(3ULL * 3600ULL * 1000000ULL);  /* 3h */
-  esp_deep_sleep_start();
+  esp_wifi_stop();
+
+  /* 等待主控切电，不再 deep sleep */
 }
 
 void loop() {
-  /* 不会执行到这里：setup 已进入 deep sleep */
+  /* 空转等待主控断电，一般不会执行超过一两秒 */
+  delay(100);
 }
