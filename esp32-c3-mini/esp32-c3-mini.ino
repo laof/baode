@@ -21,6 +21,7 @@
 #include <WiFiClient.h>
 #include <time.h>
 #include "esp_wifi.h"
+#include "esp_sntp.h"
 #include "secrets.h"
 
 static const char *NTP_1 = "ntp.aliyun.com";
@@ -69,10 +70,18 @@ static bool connectWiFi() {
 }
 
 static bool syncAndSendTime() {
-  configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_1, NTP_2, NTP_3);
+  /* 用 ESP-IDF 原生 SNTP API，避开 Arduino configTime() 触发的
+     "Required to lock TCPIP core functionality" 断言（Arduino-ESP32 3.x 已知问题） */
+  if (esp_sntp_enabled()) esp_sntp_stop();
+  esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+  esp_sntp_setservername(0, NTP_1);
+  esp_sntp_setservername(1, NTP_2);
+  esp_sntp_setservername(2, NTP_3);
+  esp_sntp_init();
+  setenv("TZ", "CST-8", 1);
+  tzset();
+
   struct tm tm_now;
-  /* 一次性等待，不要在紧循环里反复调用 getLocalTime()
-     新版 Arduino-ESP32/LwIP 会触发 "Required to lock TCPIP core functionality" 断言 */
   if (!getLocalTime(&tm_now, NTP_TIMEOUT_MS)) {
     Serial.println("[NTP] FAIL");
     return false;
