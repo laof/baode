@@ -286,10 +286,12 @@ void setup() {
   WiFi.mode(WIFI_OFF);
   esp_wifi_stop();
 
-  /* 等待主控切电，不再 deep sleep */
+  /* 无 MOSFET 切电时，靠自身 deep sleep 模拟"断电"，3 小时后自醒 */
+  esp_sleep_enable_timer_wakeup(3ULL * 3600ULL * 1000000ULL);
+  esp_deep_sleep_start();
 }
 
 void loop() {
-  /* 空转等待主控断电，一般不会执行超过一两秒 */
+  /* deep sleep 后不会执行到这里 */
   delay(100);
 }
