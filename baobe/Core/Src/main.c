@@ -46,52 +46,18 @@
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi1;
 I2C_HandleTypeDef hi2c1;
-UART_HandleTypeDef huart2;
 RTC_HandleTypeDef hrtc;
 
 /* USER CODE BEGIN PV */
 static ST7305_t g_lcd;
 static SHT30_t  g_sht30;
 
-/* 本地维护的时钟（被 UART 同步帧出现时覆盖，平时按秒自走）*/
-static volatile uint8_t  g_time_synced = 0;
-static char              g_date[11]    = "2026-01-01";  /* YYYY-MM-DD\0 */
+/* 本地维护的时钟（从 RTC 读取，按秒自走）*/
+static char              g_date[11] = "2026-01-01";  /* YYYY-MM-DD\0 */
 static volatile uint8_t  g_hh = 0, g_mm = 0, g_ss = 0;
-
-/* USART2 单字节接收 + 行缓冲（F: 帧最长约 36 字节，留余量） */
-static uint8_t  g_uart_rx_byte;
-static char     g_line_buf[80];
-static uint8_t  g_line_len = 0;
-
-/* 副控连接/Wi-Fi 状态 */
-static volatile uint32_t g_esp_last_seen_ms = 0;   /* 最后一次收到任意帧的 uptime 秒（变量名保留兼容） */
-static volatile uint8_t  g_wifi_up = 0;            /* 0=down/unknown, 1=up */
-static volatile uint8_t  g_wifi_ever_ok = 0;       /* 历史上是否曾经联网成功 */
-static volatile uint8_t  g_wifi_failed = 0;        /* sticky：曾经联网过、但本次/之后联网失败，直到下次成功才清 */
-
-/* 天气：0=晴 1=多云 2=阴/雾 3=雨 4=雪，-1=未知 */
-static volatile int8_t   g_w_code   = -1;
-static volatile int8_t   g_w_temp_c = 0;
-static volatile uint32_t g_w_last_seen_ms = 0;
-
-/* 未来 5 天预报（来自 ESP 的 F: 帧），下标 0=明天, 4=后第五天 */
-static volatile int8_t   g_fc_code[5] = { -1, -1, -1, -1, -1 };
-static volatile int8_t   g_fc_temp[5] = {  0,  0,  0,  0,  0 };
-static volatile uint32_t g_fc_last_seen_ms = 0;
-
-/* 副控电源管理：每 3 小时唤醒 ESP32 一次，完成校时/天气后切电 */
-#define ESP_CYCLE_S       (3UL * 3600UL)            /* 3 小时一周期 */
-#define ESP_TIMEOUT_S     (90UL)                    /* 单次会话最长 90s */
-#define ESP_RETRY_S       (10UL * 60UL)             /* 失败后 10 分钟重试 */
-static volatile uint8_t  g_esp_power_on    = 0;     /* 当前是否已上电 */
-static volatile uint8_t  g_esp_session_done= 0;     /* 收到 D 帧，可以切电 */
-static uint32_t          g_esp_power_on_s   = 0;    /* 本次上电时的 uptime 秒 */
-static uint32_t          g_esp_last_done_s  = 0;    /* 上一次成功完成时的 uptime 秒，0=尚未完成 */
-static uint8_t           g_esp_first_boot   = 1;    /* 首次启动需要立刻拉 ESP */
 
 /* 上电后的秒计数（由 RTC 唤醒驱动，跨 Stop 依然准确）*/
 static volatile uint32_t g_uptime_s = 0;
-static volatile uint8_t  g_wakeup_pending = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -99,39 +65,18 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
+static void render_screen(const char *date, uint8_t hh, uint8_t mm,
                           int16_t temp_x10, uint16_t rh_x10,
-                          uint8_t esp_online, uint8_t wifi_up, uint8_t wifi_failed,
-                          int8_t w_code, int8_t w_temp_c,
-                          const int8_t fc_code[5], const int8_t fc_temp[5],
-                          uint8_t bat_bars,
-                          uint32_t weather_age_s, uint32_t weather_cycle_s);
+                          uint8_t bat_bars);
 static void MX_RTC_Init(void);
 static void rtc_set_wakeup_seconds(uint32_t s);
 static void rtc_read_into_globals(void);
-static void rtc_write_datetime(const char *date, uint8_t hh, uint8_t mm, uint8_t ss);
-static void enable_usart2_stop_wakeup(void);
 static void enter_stop2_and_restore(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-/* ===== 副控 ESP32 电源控制 ===== */
-static void esp_power_set(uint8_t on)
-{
-  HAL_GPIO_WritePin(ESP_EN_GPIO_Port, ESP_EN_Pin, on ? GPIO_PIN_SET : GPIO_PIN_RESET);
-  g_esp_power_on = on;
-  if (on)
-  {
-    g_esp_power_on_s    = g_uptime_s;
-    g_esp_session_done  = 0;
-    g_wifi_up           = 0;
-    g_esp_last_seen_ms  = 0;
-  }
-}
 
 /* ===== 电池电量（PA1 -> ADC1_IN6，100k/100k 分压，VREFINT 校准）===== */
 static ADC_HandleTypeDef hadc_bat;
@@ -249,7 +194,6 @@ int main(void)
   MX_GPIO_Init();
   MX_SPI1_Init();
   MX_I2C1_Init();
-  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   g_lcd.hspi     = &hspi1;
   g_lcd.cs_port  = LCD_CS_GPIO_Port;  g_lcd.cs_pin  = LCD_CS_Pin;
@@ -263,12 +207,8 @@ int main(void)
   /* SHT30 I2C 7-bit 地址：ADDR 脚接 GND => 0x44；接 VDD => 0x45 */
   sht30_init(&g_sht30, &hi2c1, 0x44);
 
-  /* 启动 USART2 接收（单字节中断，循环重启）*/
-  HAL_UART_Receive_IT(&huart2, &g_uart_rx_byte, 1);
-
-  /* RTC + 5s 周期唤醒 + USART2 Stop 唤醒：构成 Stop 2 低功耗的基础 */
+  /* RTC + 5s 周期唤醒，配合 Stop2 实现最低功耗 */
   MX_RTC_Init();
-  enable_usart2_stop_wakeup();
   // 每5秒刷新一次，既能保证时间显示更新，又能定期读传感器和电池电压
   rtc_set_wakeup_seconds(5);
 
@@ -279,11 +219,6 @@ int main(void)
   uint16_t last_rh_x10   = 0;
   uint8_t  last_bat_bars = bat_mv_to_bars(bat_read_mv());
   uint32_t last_bat_s    = 0;
-
-  /* 开机立即给副控上电，做第一次校时/天气 */
-  esp_power_set(1);
-  g_esp_power_on_s  = g_uptime_s;
-  g_esp_first_boot  = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -293,31 +228,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-    /* 副控电源状态机：每 3 小时上电一次，完成会话或超时后切电 */
-    if (g_esp_power_on)
-    {
-      if (g_esp_session_done)
-      {
-        esp_power_set(0);
-        g_esp_last_done_s = g_uptime_s ? g_uptime_s : 1U;
-      }
-      else if ((g_uptime_s - g_esp_power_on_s) >= ESP_TIMEOUT_S)
-      {
-        esp_power_set(0);
-        g_esp_last_done_s = g_uptime_s - (ESP_CYCLE_S - ESP_RETRY_S);
-        if (g_esp_last_done_s == 0) g_esp_last_done_s = 1U;
-      }
-    }
-    else
-    {
-      uint32_t since = g_uptime_s - g_esp_last_done_s;
-      if (g_esp_last_done_s != 0 && since >= ESP_CYCLE_S)
-      {
-        esp_power_set(1);
-        g_esp_power_on_s = g_uptime_s;
-      }
-    }
 
     /* 读 SHT30（每次唤醒，5s 一次） */
     {
@@ -336,40 +246,13 @@ int main(void)
       last_bat_bars = bat_mv_to_bars(bat_read_mv());
     }
 
-    /* 从 RTC 读最新时间到 g_hh/g_mm/g_ss/g_date，然后刷屏 */
+    /* 从 RTC 读最新时间到 g_hh/g_mm/g_ss/g_date，然后刷屏。
+       ST7305 是双稳态屏，IC 自身常态待机 ~30µA，开 SLPIN 需 120ms 唤醒 delay
+       反而让平均功耗变高。这里不进 sleep，直接刷屏。 */
     rtc_read_into_globals();
-    {
-      uint8_t esp_online = (g_esp_last_seen_ms != 0) &&
-                           ((g_uptime_s - g_esp_last_seen_ms) < 60U);
-      int8_t  w_code     = (g_w_last_seen_ms != 0) ? g_w_code   : (int8_t)-1;
-      int8_t  w_temp_c   = (g_w_last_seen_ms != 0) ? g_w_temp_c : (int8_t)0;
-      /* 预报数据：未收到过 F: 帧时全部置 -1（render_screen 内部跳过空格） */
-      int8_t fc_c[5], fc_t[5];
-      if (g_fc_last_seen_ms != 0)
-      {
-        for (uint8_t i = 0; i < 5; i++) { fc_c[i] = g_fc_code[i]; fc_t[i] = g_fc_temp[i]; }
-      }
-      else
-      {
-        for (uint8_t i = 0; i < 5; i++) { fc_c[i] = -1; fc_t[i] = 0; }
-      }
-      /* 进度条只以天气帧时间为准：未联网前=全虚，刚收到=全实，随时间变虚 */
-      uint32_t weather_age = (g_w_last_seen_ms != 0)
-                             ? (g_uptime_s - g_w_last_seen_ms)
-                             : ESP_CYCLE_S;
-      /* ST7305 是双稳态屏，IC 自身常态待机 ~30µA，开 SLPIN 需 120ms 唤醒 delay
-         反而让平均功耗变高。这里不进 sleep，直接刷屏。 */
-      render_screen(g_date, g_hh, g_mm, g_ss, last_temp_x10, last_rh_x10,
-                    esp_online, g_wifi_up, g_wifi_failed,
-                    w_code, w_temp_c, fc_c, fc_t, last_bat_bars,
-                    weather_age, ESP_CYCLE_S);
-    }
+    render_screen(g_date, g_hh, g_mm, last_temp_x10, last_rh_x10, last_bat_bars);
 
-    /* 重新挂上 UART 接收（Stop 唤醒后中断链路可能需要重新 arm） */
-    HAL_UART_Receive_IT(&huart2, &g_uart_rx_byte, 1);
-
-    /* 进入 Stop 2 等待下次 RTC 唤醒或 UART 起始位唤醒 */
-    g_wakeup_pending = 0;
+    /* 进入 Stop 2 等待下次 RTC 唤醒 */
     enter_stop2_and_restore();
   }
   /* USER CODE END 3 */
@@ -433,10 +316,9 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
-  /* RTC 时钟源 = LSE，USART2 时钟源 = HSI16（供 Stop 模式唤醒使用）*/
-  p.PeriphClockSelection = RCC_PERIPHCLK_RTC | RCC_PERIPHCLK_USART2;
+  /* RTC 时钟源 = LSE */
+  p.PeriphClockSelection = RCC_PERIPHCLK_RTC;
   p.RTCClockSelection    = RCC_RTCCLKSOURCE_LSE;
-  p.Usart2ClockSelection = RCC_USART2CLKSOURCE_HSI;
   if (HAL_RCCEx_PeriphCLKConfig(&p) != HAL_OK)
   {
     Error_Handler();
@@ -511,27 +393,6 @@ static void MX_I2C1_Init(void)
   }
 }
 
-/**
-  * @brief USART2 Initialization (PA2=TX, PA3=RX, 115200 8N1)
-  */
-static void MX_USART2_UART_Init(void)
-{
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-}
-
 /* ===== RTC + Stop2 低功耗辅助 ===== */
 
 /* 初始化 RTC（LSE 32.768kHz 驱动，1Hz 计时）。首次上电填默认时间，后续复位保留 RTC 计时。*/
@@ -590,49 +451,12 @@ static void rtc_read_into_globals(void)
   snprintf(g_date, sizeof(g_date), "20%02d-%02d-%02d", d.Year, d.Month, d.Date);
 }
 
-/* 将 "YYYY-MM-DD" + HH:MM:SS 写入 RTC */
-static void rtc_write_datetime(const char *date, uint8_t hh, uint8_t mm, uint8_t ss)
-{
-  if (date == NULL) return;
-  int yyyy = (date[0]-'0')*1000 + (date[1]-'0')*100 + (date[2]-'0')*10 + (date[3]-'0');
-  int mo   = (date[5]-'0')*10  + (date[6]-'0');
-  int dd   = (date[8]-'0')*10  + (date[9]-'0');
-  if (yyyy < 2000 || yyyy > 2099 || mo < 1 || mo > 12 || dd < 1 || dd > 31) return;
-
-  RTC_DateTypeDef d = {0};
-  RTC_TimeTypeDef t = {0};
-  d.Year  = (uint8_t)(yyyy - 2000);
-  d.Month = (uint8_t)mo;
-  d.Date  = (uint8_t)dd;
-  d.WeekDay = RTC_WEEKDAY_MONDAY;
-  t.Hours = hh; t.Minutes = mm; t.Seconds = ss;
-  t.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
-  t.StoreOperation = RTC_STOREOPERATION_RESET;
-  HAL_RTC_SetDate(&hrtc, &d, RTC_FORMAT_BIN);
-  HAL_RTC_SetTime(&hrtc, &t, RTC_FORMAT_BIN);
-}
-
-/* 启用 USART2 在 Stop 下被起始位唤醒（USART2 时钟源须为 HSI16/LSE）*/
-static void enable_usart2_stop_wakeup(void)
-{
-  UART_WakeUpTypeDef w = {0};
-  w.WakeUpEvent = UART_WAKEUP_ON_STARTBIT;
-  if (HAL_UARTEx_StopModeWakeUpSourceConfig(&huart2, w) != HAL_OK) { Error_Handler(); }
-  if (HAL_UARTEx_EnableStopMode(&huart2) != HAL_OK) { Error_Handler(); }
-
-  __HAL_UART_ENABLE_IT(&huart2, UART_IT_WUF);
-  HAL_NVIC_SetPriority(USART2_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(USART2_IRQn);
-}
-
-/* 进入 Stop 1，醒来后重跑时钟配置恢复 SYSCLK。
-   注意：STM32L431 的 USART2 只支持 Stop 0/1 唤醒，Stop 2 下 USART 完全断电
-   收不到 ESP 数据，所以这里必须用 Stop 1。
-   Stop 1 typical ~5µA，比 Stop 2 ~1.4µA 多约 3µA，对续航影响 <1 天。 */
+/* 进入 Stop 2，醒来后重跑时钟配置恢复 SYSCLK。
+   USART 已经完全不用，可以放心用 Stop 2（typical ~1.4 µA）。 */
 static void enter_stop2_and_restore(void)
 {
   HAL_SuspendTick();
-  HAL_PWREx_EnterSTOP1Mode(PWR_STOPENTRY_WFI);
+  HAL_PWREx_EnterSTOP2Mode(PWR_STOPENTRY_WFI);
   /* 醒来后 SYSCLK 退回 MSI，PLL 被关闭。重跑时钟配置。*/
   SystemClock_Config();
   HAL_ResumeTick();
@@ -641,8 +465,7 @@ static void enter_stop2_and_restore(void)
 void HAL_RTCEx_WakeUpTimerEventCallback(RTC_HandleTypeDef *h)
 {
   (void)h;
-  g_uptime_s      += 5U;
-  g_wakeup_pending = 1;
+  g_uptime_s += 5U;
 }
 
 /**
@@ -680,23 +503,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(LCD_RES_GPIO_Port, &GPIO_InitStruct);
 
-  /* ESP 电源使能：先确保关电，再配为推挽输出 */
-  HAL_GPIO_WritePin(ESP_EN_GPIO_Port, ESP_EN_Pin, GPIO_PIN_RESET);
-  GPIO_InitStruct.Pin = ESP_EN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(ESP_EN_GPIO_Port, &GPIO_InitStruct);
-
-  /* 剩下所有未使用的 GPIO 都配为 Analog + No-Pull，消除浮空漏电（SWD: PA13/PA14 保留）*/
+  /* 剩下所有未使用的 GPIO 都配为 Analog + No-Pull，消除浮空漏电（SWD: PA13/PA14 保留）。
+     PA2/PA3（原 USART2 TX/RX）和 PB1（原 ESP_EN）现在都不用了，统一进 Analog。 */
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Pin  = GPIO_PIN_0 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10
-                       | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_15;
+  GPIO_InitStruct.Pin  = GPIO_PIN_0 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_8
+                       | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11 | GPIO_PIN_12
+                       | GPIO_PIN_15;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-  GPIO_InitStruct.Pin  = GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5
-                       | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11
-                       | GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
+  GPIO_InitStruct.Pin  = GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4
+                       | GPIO_PIN_5 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10
+                       | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14
+                       | GPIO_PIN_15;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
   GPIO_InitStruct.Pin  = GPIO_PIN_0  | GPIO_PIN_1  | GPIO_PIN_2  | GPIO_PIN_3
                        | GPIO_PIN_4  | GPIO_PIN_5  | GPIO_PIN_6  | GPIO_PIN_7
@@ -1062,13 +880,9 @@ static void draw_mini_calendar(int year, int month, int today, uint16_t x, uint1
   }
 }
 
-static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
+static void render_screen(const char *date, uint8_t hh, uint8_t mm,
                           int16_t temp_x10, uint16_t rh_x10,
-                          uint8_t esp_online, uint8_t wifi_up, uint8_t wifi_failed,
-                          int8_t w_code, int8_t w_temp_c,
-                          const int8_t fc_code_in[5], const int8_t fc_temp_in[5],
-                          uint8_t bat_bars,
-                          uint32_t weather_age_s, uint32_t weather_cycle_s)
+                          uint8_t bat_bars)
 {
   char time_str[16];
   char temp_str[16];
@@ -1098,7 +912,6 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   /* 露点 < 8.0°C 认为偏干，需要加湿 */
   uint8_t dry = (uint8_t)(dew_valid && (dew_x10 < 80));
 
-  (void)ss;
   snprintf(time_str, sizeof(time_str), "%02d:%02d", hh, mm);
   snprintf(temp_str, sizeof(temp_str), "T:%s%d.%dC",
            temp_x10 < 0 ? "-" : "", temp_abs / 10, temp_abs % 10);
@@ -1106,34 +919,10 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   snprintf(dew_str,  sizeof(dew_str),  "%s%d.%d",
            dew_x10 < 0 ? "-" : "", dew_abs / 10, dew_abs % 10);
 
-  /* 六日预报：今天 = ESP 实时帧 W:；后 5 天 = ESP 多日帧 F:。任意一项缺失则该格留空（不绘制）。 */
-  int8_t fc_code[6];
-  int8_t fc_temp[6];
-  fc_code[0] = w_code;
-  fc_temp[0] = w_temp_c;
-  for (uint8_t i = 0; i < 5; i++)
-  {
-    fc_code[i + 1] = fc_code_in ? fc_code_in[i] : (int8_t)-1;
-    fc_temp[i + 1] = fc_temp_in ? fc_temp_in[i] : (int8_t)0;
-  }
-
   st7305_fill(&g_lcd, ST7305_COLOR_WHITE);
 
   /* ===== 顶部状态栏 y=0..22 ===== */
   draw_icon_battery(4, 5, bat_bars);
-  if (esp_online)
-  {
-    draw_icon_esp(38, 1);
-  }
-  /* WiFi 状态：sticky 失败优先显示 !!!（即使 ESP 已断电），否则在线且联网才画信号条 */
-  if (wifi_failed)
-  {
-    st7305_draw_string(&g_lcd, 68, 5, "!!!", ST7305_COLOR_BLACK, 2);
-  }
-  else if (esp_online)
-  {
-    draw_icon_signal(68, 8, wifi_up);
-  }
   /* 时间 HH:MM s=2：5*6*2=60 宽，右边距 4 → x=336, y=5 */
   st7305_draw_string(&g_lcd, 336, 5, time_str, ST7305_COLOR_BLACK, 2);
   /* 日期 YYYY-MM-DD s=2：10*6*2=120 宽，紧贴时间左侧留 10px → x=206, y=5 */
@@ -1178,74 +967,7 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
     }
   }
 
-  /* ===== 倒计时进度条 y=165：露点与天气区间的分隔线 ===== */
-  {
-    uint32_t age   = weather_age_s;
-    uint32_t cyc   = (weather_cycle_s == 0) ? 1U : weather_cycle_s;
-    uint32_t remain = (age >= cyc) ? 0U : (cyc - age);
-    uint32_t solid_w = (400UL * remain) / cyc;
-    if (solid_w > 400U) solid_w = 400U;
-    if (solid_w > 0)
-    {
-      fill_rect(0, 165, (uint16_t)solid_w, 1, ST7305_COLOR_BLACK);
-    }
-    for (uint16_t x = (uint16_t)solid_w; x < 400; x += 4)
-    {
-      uint16_t seg = (uint16_t)((x + 2 > 400) ? (400 - x) : 2);
-      fill_rect(x, 165, seg, 1, ST7305_COLOR_BLACK);
-    }
-  }
-
-  /* ===== 六日天气 y=140..260：今天双宽（114px）+ 5 天等宽（57px） ===== */
-  {
-    int gy0 = 0, gmo0 = 0, gda0 = 0;
-    if (sscanf(date, "%d-%d-%d", &gy0, &gmo0, &gda0) != 3)
-    {
-      gy0 = 2026; gmo0 = 1; gda0 = 1;
-    }
-    int dy = gy0, dm = gmo0, dd = gda0;
-    for (uint8_t i = 0; i < 6; i++)
-    {
-      /* 今天占 114，其他各 57；总宽 114+57*5=399 */
-      uint16_t cell_x = (i == 0) ? 0 : (uint16_t)(114 + (i - 1) * 57);
-      uint16_t cell_w = (i == 0) ? 114 : 57;
-
-      /* 顶部日期标签 s=2；首列（今天）不画 */
-      if (i > 0)
-      {
-        char ds[4];
-        snprintf(ds, sizeof(ds), "%d", dd);
-        uint16_t dw = (uint16_t)(strlen(ds) * 6 * 2);
-        uint16_t dx = (uint16_t)(cell_x + (cell_w - dw) / 2);
-        st7305_draw_string(&g_lcd, dx, 180, ds, ST7305_COLOR_BLACK, 2);
-      }
-
-      if (fc_code[i] >= 0)
-      {
-        /* 所有列统一：图标 s=1（28×22），温度 s=2；今天靠双倍宽留白突出 */
-        uint16_t icon_x = (uint16_t)(cell_x + (cell_w - 28) / 2);
-        draw_icon_weather(icon_x, 208, 1, fc_code[i]);
-        char ts[8];
-        snprintf(ts, sizeof(ts), "%dC", (int)fc_temp[i]);
-        uint16_t tw = (uint16_t)(strlen(ts) * 6 * 2);
-        uint16_t tx = (uint16_t)(cell_x + (cell_w - tw) / 2);
-        st7305_draw_string(&g_lcd, tx, 242, ts, ST7305_COLOR_BLACK, 2);
-      }
-
-      /* 推进到下一天 */
-      dd++;
-      if (dd > days_in_month(dy, dm))
-      {
-        dd = 1;
-        dm++;
-        if (dm > 12) { dm = 1; dy++; }
-      }
-    }
-  }
-
-  /* ===== 倒计时进度条已上移至 y=108，此处不重复 ===== */
-
-  /* 分隔线 3：天气与底部之间 */
+  /* 分隔线：底部区上方 */
   fill_rect(0, 270, 400, 1, ST7305_COLOR_BLACK);
 
   /* ===== 底部 y=276..290（h=14，与顶部 s=2 行同高） ===== */
@@ -1283,181 +1005,6 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm, uint8_t ss,
   st7305_refresh(&g_lcd);
 }
 
-/**
-  * @brief UART RX 完成回调：解析多种帧
-  *   - "T:YYYY-MM-DD HH:MM:SS\n" (21 字符) -> 同步时间
-  *   - "S:W\n" / "S:N\n" (3 字符)          -> Wi-Fi 状态上报
-  * 任意一次成功收到完整帧都会刷新 ESP 心跳时间。
-  */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-  if (huart->Instance != USART2)
-  {
-    return;
-  }
-
-  uint8_t b = g_uart_rx_byte;
-
-  if (b == '\r')
-  {
-    /* ignore */
-  }
-  else if (b == '\n')
-  {
-    g_line_buf[g_line_len] = '\0';
-
-    uint8_t frame_ok = 0;
-
-    /* T:YYYY-MM-DD HH:MM:SS  (21 \u5b57\u7b26) */
-    if (g_line_len == 21
-        && g_line_buf[0]  == 'T' && g_line_buf[1]  == ':'
-        && g_line_buf[6]  == '-' && g_line_buf[9]  == '-'
-        && g_line_buf[12] == ' '
-        && g_line_buf[15] == ':' && g_line_buf[18] == ':')
-    {
-      uint8_t hh = (uint8_t)((g_line_buf[13] - '0') * 10 + (g_line_buf[14] - '0'));
-      uint8_t mm = (uint8_t)((g_line_buf[16] - '0') * 10 + (g_line_buf[17] - '0'));
-      uint8_t ss = (uint8_t)((g_line_buf[19] - '0') * 10 + (g_line_buf[20] - '0'));
-      if (hh < 24 && mm < 60 && ss < 60)
-      {
-        for (uint8_t i = 0; i < 10; i++)
-        {
-          g_date[i] = g_line_buf[2 + i];
-        }
-        g_date[10] = '\0';
-        g_hh = hh;
-        g_mm = mm;
-        g_ss = ss;
-        g_time_synced = 1;
-        rtc_write_datetime(g_date, hh, mm, ss);
-        frame_ok = 1;
-      }
-    }
-    /* D\n 会话结束，主控可切电 */
-    else if (g_line_len == 1 && g_line_buf[0] == 'D')
-    {
-      g_esp_session_done = 1;
-      frame_ok = 1;
-    }
-    /* S:W \u6216 S:N (3 \u5b57\u7b26) */
-    else if (g_line_len == 3 && g_line_buf[0] == 'S' && g_line_buf[1] == ':')
-    {
-      if (g_line_buf[2] == 'W')
-      {
-        g_wifi_up       = 1;
-        g_wifi_ever_ok  = 1;
-        g_wifi_failed   = 0;   /* 联网成功 → 清除 sticky 失败 */
-        frame_ok = 1;
-      }
-      else if (g_line_buf[2] == 'N')
-      {
-        g_wifi_up = 0;
-        if (g_wifi_ever_ok)    /* 历史上联过网，本次失败 → 置 sticky */
-        {
-          g_wifi_failed = 1;
-        }
-        frame_ok = 1;
-      }
-    }
-    /* W:<code>,<temp>  变长，code 为 1 位数字，temp 可带负号 */
-    else if (g_line_len >= 5 && g_line_buf[0] == 'W' && g_line_buf[1] == ':'
-             && g_line_buf[2] >= '0' && g_line_buf[2] <= '9'
-             && g_line_buf[3] == ',')
-    {
-      int8_t wcode = (int8_t)(g_line_buf[2] - '0');
-      int    sign  = 1;
-      uint8_t i    = 4;
-      if (g_line_buf[i] == '-') { sign = -1; i++; }
-      else if (g_line_buf[i] == '+') { i++; }
-      int    val   = 0;
-      uint8_t got  = 0;
-      while (i < g_line_len && g_line_buf[i] >= '0' && g_line_buf[i] <= '9')
-      {
-        val = val * 10 + (g_line_buf[i] - '0');
-        got = 1;
-        i++;
-      }
-      if (got && wcode <= 4)
-      {
-        int v = sign * val;
-        if (v < -99) v = -99;
-        if (v >  99) v =  99;
-        g_w_code         = wcode;
-        g_w_temp_c       = (int8_t)v;
-        g_w_last_seen_ms = g_uptime_s;
-        frame_ok = 1;
-      }
-    }
-    /* F:c,t;c,t;c,t;c,t;c,t  未来 5 天，每天 code(0..4) + 温度（带符号，最多 3 位） */
-    else if (g_line_len >= 19 && g_line_buf[0] == 'F' && g_line_buf[1] == ':')
-    {
-      int8_t  tmp_c[5] = {0};
-      int8_t  tmp_t[5] = {0};
-      uint8_t i = 2;
-      uint8_t day_ok = 0;
-      for (uint8_t d = 0; d < 5; d++)
-      {
-        if (i >= g_line_len) break;
-        /* code: 1 位数字 */
-        if (g_line_buf[i] < '0' || g_line_buf[i] > '4') break;
-        int8_t code = (int8_t)(g_line_buf[i] - '0');
-        i++;
-        if (i >= g_line_len || g_line_buf[i] != ',') break;
-        i++;
-        /* temp: 可选符号 + 1..3 位数字 */
-        int sgn = 1;
-        if (i < g_line_len && g_line_buf[i] == '-') { sgn = -1; i++; }
-        else if (i < g_line_len && g_line_buf[i] == '+') { i++; }
-        int vv = 0; uint8_t tgot = 0;
-        while (i < g_line_len && g_line_buf[i] >= '0' && g_line_buf[i] <= '9')
-        {
-          vv = vv * 10 + (g_line_buf[i] - '0');
-          tgot = 1;
-          i++;
-        }
-        if (!tgot) break;
-        int v2 = sgn * vv;
-        if (v2 < -99) v2 = -99;
-        if (v2 >  99) v2 =  99;
-        tmp_c[d] = code;
-        tmp_t[d] = (int8_t)v2;
-        day_ok++;
-        /* 非末尾需要 ';' 分隔 */
-        if (d < 4)
-        {
-          if (i >= g_line_len || g_line_buf[i] != ';') break;
-          i++;
-        }
-      }
-      if (day_ok == 5)
-      {
-        for (uint8_t d = 0; d < 5; d++)
-        {
-          g_fc_code[d] = tmp_c[d];
-          g_fc_temp[d] = tmp_t[d];
-        }
-        g_fc_last_seen_ms = g_uptime_s;
-        frame_ok = 1;
-      }
-    }
-    if (frame_ok)
-    {
-      g_esp_last_seen_ms = g_uptime_s;
-    }
-    g_line_len = 0;
-  }
-  else if (g_line_len < sizeof(g_line_buf) - 1)
-  {
-    g_line_buf[g_line_len++] = (char)b;
-  }
-  else
-  {
-    /* \u884c\u8fc7\u957f\uff0c\u4e22\u5f03 */
-    g_line_len = 0;
-  }
-
-  HAL_UART_Receive_IT(huart, &g_uart_rx_byte, 1);
-}
 /* USER CODE END 4 */
 
 /**

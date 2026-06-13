@@ -196,8 +196,8 @@ void st7305_init(ST7305_t *lcd) {
     st7305_fill(lcd, ST7305_COLOR_WHITE);
     st7305_refresh(lcd);
 
-    /* 切到 HPM 让首屏快速可见；如需省电，调用方可再发 0x39 切回 LPM */
-    st7305_write_cmd(lcd, 0x38);
+    /* 全程低功耗模式 LPM，比 HPM 节省 ~100-300 µA，对静态界面足够 */
+    st7305_write_cmd(lcd, 0x39);
 }
 
 void st7305_fill(ST7305_t *lcd, uint8_t color) {
