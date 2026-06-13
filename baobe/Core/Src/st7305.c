@@ -6,14 +6,14 @@ static uint8_t s_buffer[ST7305_BUFFER_SIZE];
 static void st7305_write_cmd(ST7305_t *lcd, uint8_t cmd) {
     HAL_GPIO_WritePin(lcd->dc_port, lcd->dc_pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(lcd->cs_port, lcd->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(lcd->hspi, &cmd, 1, HAL_MAX_DELAY);
+    HAL_SPI_Transmit(lcd->hspi, &cmd, 1, 50);
     HAL_GPIO_WritePin(lcd->cs_port, lcd->cs_pin, GPIO_PIN_SET);
 }
 
 static void st7305_write_data(ST7305_t *lcd, uint8_t data) {
     HAL_GPIO_WritePin(lcd->dc_port, lcd->dc_pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(lcd->cs_port, lcd->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(lcd->hspi, &data, 1, HAL_MAX_DELAY);
+    HAL_SPI_Transmit(lcd->hspi, &data, 1, 50);
     HAL_GPIO_WritePin(lcd->cs_port, lcd->cs_pin, GPIO_PIN_SET);
 }
 
@@ -261,7 +261,7 @@ void st7305_refresh(ST7305_t *lcd) {
     st7305_address(lcd);
     HAL_GPIO_WritePin(lcd->dc_port, lcd->dc_pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(lcd->cs_port, lcd->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(lcd->hspi, s_buffer, ST7305_BUFFER_SIZE, HAL_MAX_DELAY);
+    HAL_SPI_Transmit(lcd->hspi, s_buffer, ST7305_BUFFER_SIZE, 500);
     HAL_GPIO_WritePin(lcd->cs_port, lcd->cs_pin, GPIO_PIN_SET);
 }
 

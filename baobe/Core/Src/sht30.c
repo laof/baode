@@ -29,14 +29,15 @@ HAL_StatusTypeDef sht30_read(SHT30_t *dev, SHT30_Readout *out) {
     uint8_t rx[6];
     HAL_StatusTypeDef status;
 
-    status = HAL_I2C_Master_Transmit(dev->hi2c, dev->address, cmd, 2, HAL_MAX_DELAY);
+    /* 50ms 超时：SHT30 未接/上拉缺失时快速返回，避免主循环 HSI16 满速转 (~1mA) */
+    status = HAL_I2C_Master_Transmit(dev->hi2c, dev->address, cmd, 2, 50);
     if (status != HAL_OK) {
         return status;
     }
 
     HAL_Delay(15);
 
-    status = HAL_I2C_Master_Receive(dev->hi2c, dev->address, rx, 6, HAL_MAX_DELAY);
+    status = HAL_I2C_Master_Receive(dev->hi2c, dev->address, rx, 6, 50);
     if (status != HAL_OK) {
         return status;
     }
