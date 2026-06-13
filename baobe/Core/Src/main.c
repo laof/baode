@@ -36,6 +36,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+/* 置 1 = 调试低功耗基线：跳过所有外设/LSE/RTC/SHT30/LCD 初始化，只设时钟+全 GPIO analog+Stop2。
+   期望电流：裸 STM32L443 仅 LSE crystal 应 < 3µA；拔掉 LSE 也 < 3µA。
+   用法：置 1 重烧 → 测量→ 恢复 0 重烧。 */
+#define LOW_POWER_TEST_MODE 0
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -192,6 +196,29 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+
+#if LOW_POWER_TEST_MODE
+  /* 把还被占着的 SPI/I2C/LCD 引脚全部重配为 analog，避免漏电 */
+  {
+    GPIO_InitTypeDef g = {0};
+    g.Mode = GPIO_MODE_ANALOG;
+    g.Pull = GPIO_NOPULL;
+    /* PA4=LCD_CS, PA5=SCK, PA6=LCD_DC, PA7=MOSI */
+    g.Pin  = LCD_CS_Pin | LCD_DS_Pin | GPIO_PIN_5 | GPIO_PIN_7;
+    HAL_GPIO_Init(GPIOA, &g);
+    /* PB0=LCD_RES, PB6=I2C_SCL, PB7=I2C_SDA */
+    g.Pin  = LCD_RES_Pin | GPIO_PIN_6 | GPIO_PIN_7;
+    HAL_GPIO_Init(GPIOB, &g);
+  }
+  HAL_DBGMCU_DisableDBGStopMode();
+  while (1)
+  {
+    HAL_SuspendTick();
+    HAL_PWREx_EnterSTOP2Mode(PWR_STOPENTRY_WFI);
+    /* 没设 RTC 唤醒：只有复位或 NRST 才出 Stop2 */
+  }
+#endif
+
   MX_SPI1_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
@@ -1014,10 +1041,12 @@ static void render_screen(const char *date, uint8_t hh, uint8_t mm,
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
+  /* 不能用 __disable_irq()+while(1) 空转：那是 HSI16 满速跑，~1mA。
+     电池产品遇错误也必须低功耗。这里进 Stop2 等复位。 */
+  HAL_SuspendTick();
   while (1)
   {
+    HAL_PWREx_EnterSTOP2Mode(PWR_STOPENTRY_WFI);
   }
   /* USER CODE END Error_Handler_Debug */
 }
