@@ -198,7 +198,8 @@ int main(void)
   MX_GPIO_Init();
 
 #if LOW_POWER_TEST_MODE
-  /* 把还被占着的 SPI/I2C/LCD 引脚全部重配为 analog，避免漏电 */
+  /* 把还被占着的 SPI/I2C/LCD 引脚全部重配为 analog，避免漏电。
+     注意：PB12 (板载 Flash CS) / PB10 (SD CS) 保持上面 MX_GPIO_Init 设的 输出 HIGH，不能改回 analog。 */
   {
     GPIO_InitTypeDef g = {0};
     g.Mode = GPIO_MODE_ANALOG;
@@ -206,7 +207,7 @@ int main(void)
     /* PA4=LCD_CS, PA5=SCK, PA6=LCD_DC, PA7=MOSI */
     g.Pin  = LCD_CS_Pin | LCD_DS_Pin | GPIO_PIN_5 | GPIO_PIN_7;
     HAL_GPIO_Init(GPIOA, &g);
-    /* PB0=LCD_RES, PB6=I2C_SCL, PB7=I2C_SDA */
+    /* PB0=LCD_RES, PB6=I2C_SCL, PB7=I2C_SDA；PB10/PB12 不动（要留着驱 Flash CS 高） */
     g.Pin  = LCD_RES_Pin | GPIO_PIN_6 | GPIO_PIN_7;
     HAL_GPIO_Init(GPIOB, &g);
   }
@@ -530,8 +531,20 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(LCD_RES_GPIO_Port, &GPIO_InitStruct);
 
+  /* 板载 W25Q64 (U2) VCC 常通 3V3，无法断电；CS = PB12 必须驱高
+     否则浮空 CS 会被噪声拉低 → Flash 进 Active = 几百 µA 到 mA。
+     PB10 是板载 SD CS（SB4 Open 默认未接），順手拉高不会错。
+     这两个脚默认 GPIO，在 Stop2 会冗住输出状态，保持 HIGH。 */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10 | GPIO_PIN_12, GPIO_PIN_SET);
+  GPIO_InitStruct.Pin = GPIO_PIN_10 | GPIO_PIN_12;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
   /* 剩下所有未使用的 GPIO 都配为 Analog + No-Pull，消除浮空漏电（SWD: PA13/PA14 保留）。
-     PA2/PA3（原 USART2 TX/RX）和 PB1（原 ESP_EN）现在都不用了，统一进 Analog。 */
+     PA2/PA3（原 USART2 TX/RX）和 PB1（原 ESP_EN）现在都不用了，统一进 Analog。
+     注意：PB10/PB12 已在上面单独设为输出 HIGH，这里不能覆盖。 */
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Pin  = GPIO_PIN_0 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_8
@@ -539,8 +552,8 @@ static void MX_GPIO_Init(void)
                        | GPIO_PIN_15;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
   GPIO_InitStruct.Pin  = GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4
-                       | GPIO_PIN_5 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10
-                       | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14
+                       | GPIO_PIN_5 | GPIO_PIN_8 | GPIO_PIN_9
+                       | GPIO_PIN_11 | GPIO_PIN_13 | GPIO_PIN_14
                        | GPIO_PIN_15;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
   GPIO_InitStruct.Pin  = GPIO_PIN_0  | GPIO_PIN_1  | GPIO_PIN_2  | GPIO_PIN_3
