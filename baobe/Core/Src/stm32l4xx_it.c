@@ -58,7 +58,6 @@
 /* External variables --------------------------------------------------------*/
 
 /* USER CODE BEGIN EV */
-extern UART_HandleTypeDef huart2;
 extern RTC_HandleTypeDef  hrtc;
 /* USER CODE END EV */
 
@@ -201,11 +200,6 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /* USER CODE BEGIN 1 */
-void USART2_IRQHandler(void)
-{
-  HAL_UART_IRQHandler(&huart2);
-}
-
 void RTC_WKUP_IRQHandler(void)
 {
   HAL_RTCEx_WakeUpTimerIRQHandler(&hrtc);
